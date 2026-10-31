@@ -24,27 +24,18 @@
   h1{font-size:1.5rem;margin:.2em 0 .1em;display:flex;align-items:center;gap:10px}
   h1 img{width:34px;height:34px;border-radius:8px}
   .sub{color:var(--muted);margin:.2em 0 1.4em}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    padding:18px;margin:14px 0}
-  .step{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);
-    font-weight:700;margin-bottom:6px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+  .step{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:700;margin-bottom:6px}
   label{display:block;font-weight:600;margin:10px 0 6px}
-  input[type=password],input[type=file]{width:100%;padding:12px;border-radius:10px;
-    border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:1rem}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  button{appearance:none;border:0;border-radius:10px;padding:13px 18px;font-size:1rem;
-    font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
-  button.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  input[type=password],input[type=file]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:1rem}
+  button{appearance:none;border:0;border-radius:10px;padding:13px 18px;font-size:1rem;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
   button:disabled{opacity:.5;cursor:not-allowed}
   .big{width:100%;padding:15px;font-size:1.05rem}
   .muted{color:var(--muted)}
   .check{display:flex;gap:8px;align-items:flex-start;margin:12px 0;font-weight:400}
-  .check input{margin-top:4px}
-  .pill{display:inline-block;padding:2px 9px;border-radius:999px;background:var(--panel2);
-    border:1px solid var(--line);font-size:.82rem;color:var(--muted)}
-  .log{background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:12px;
-    font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;white-space:pre-wrap;
-    max-height:340px;overflow:auto;margin-top:12px;color:#cfe}
+  .check input{margin-top:4px;width:auto}
+  .note{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.88rem;color:var(--muted);margin-top:10px}
+  .log{background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;white-space:pre-wrap;max-height:360px;overflow:auto;margin-top:12px;color:#cfe}
   @media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .log{background:#1a2430;color:#cfe}}
   .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
   .bar{height:8px;background:var(--panel2);border-radius:999px;overflow:hidden;margin-top:12px}
@@ -61,25 +52,24 @@
   <b>no teu dispositivo</b> com a tua palavra-passe e gravado na tua pasta do Google Drive.
   Nada passa por servidores.</p>
 
-  <!-- Passo 1: login -->
   <div class="card">
     <div class="step">Passo 1 — Entrar com Google</div>
     <p class="muted" id="authState">É a mesma conta que usas no diário.</p>
     <button id="btnAuth" class="big">Entrar com Google</button>
   </div>
 
-  <!-- Passo 2: ficheiro + passphrase -->
   <div class="card" id="card2" style="opacity:.5;pointer-events:none">
     <div class="step">Passo 2 — Backup e palavra-passe</div>
     <label for="file">Ficheiro de backup do Journey (.zip)</label>
     <input type="file" id="file" accept=".zip,application/zip" />
     <label for="pass">Palavra-passe do diário</label>
     <input type="password" id="pass" placeholder="a mesma que criaste na app" autocomplete="off" />
-    <label class="check"><input type="checkbox" id="dry" />
+    <label class="check"><input type="checkbox" id="dry" checked />
       <span>Simular primeiro (mostra o que seria importado, <b>sem gravar</b> nada)</span></label>
+    <div class="note">Backups grandes (vários GB) são lidos aos poucos, sem carregar tudo para a
+    memória. Usa o computador e uma ligação estável, e <b>mantém esta página aberta</b> até ao fim.</div>
   </div>
 
-  <!-- Passo 3 -->
   <div class="card" id="card3" style="opacity:.5;pointer-events:none">
     <div class="step">Passo 3 — Importar</div>
     <button id="btnRun" class="big">Importar entradas</button>
@@ -87,16 +77,16 @@
     <div class="log hide" id="log"></div>
   </div>
 
-  <p class="foot">Página de migração do Diário. Só grava entradas novas — nunca apaga nem
-  altera o que já tens. Podes correr mais do que uma vez: as entradas já importadas são ignoradas.</p>
+  <p class="foot">Página de migração do Diário. Nunca apaga o que já tens. Se uma entrada já foi
+  importada, é <b>atualizada</b> em vez de duplicada — e a media que já lá está não volta a ser enviada.
+  Podes correr as vezes que quiseres.</p>
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.52/dist/zip-no-worker.min.js"></script>
 <script>
 (() => {
   "use strict";
-  // ---- constantes da app Diário ----
   const CLIENT_ID = "245600677941-jd73oubjd43rjngqln2nuvu8g3n5e3f9.apps.googleusercontent.com";
   const SCOPE = "https://www.googleapis.com/auth/drive.file openid email";
   const API = "https://www.googleapis.com/drive/v3";
@@ -106,288 +96,240 @@
   const ITER = 310000;
   const CHECK = "diario-vault-check-v1";
 
-  // ---- elementos ----
   const $ = id => document.getElementById(id);
   const logEl = $("log"), barWrap = $("barWrap"), bar = $("bar");
   let token = null, key = null;
 
-  function log(msg, cls){
-    logEl.classList.remove("hide");
-    const line = document.createElement("div");
-    if(cls) line.className = cls;
-    line.textContent = msg;
-    logEl.appendChild(line);
-    logEl.scrollTop = logEl.scrollHeight;
-  }
-  function setBar(p){ barWrap.classList.remove("hide"); bar.style.width = Math.round(p*100)+"%"; }
+  function log(msg, cls){ logEl.classList.remove("hide"); const d=document.createElement("div");
+    if(cls) d.className=cls; d.textContent=msg; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
+  function setBar(p){ barWrap.classList.remove("hide"); bar.style.width=Math.round(p*100)+"%"; }
 
-  // ---- base64 (igual à app) ----
-  const b64e = b => { const u = b instanceof Uint8Array ? b : new Uint8Array(b);
-    let s=""; for(let i=0;i<u.length;i+=32768) s += String.fromCharCode.apply(null, u.subarray(i,i+32768));
-    return btoa(s); };
-  const b64d = s => { const bin = atob(s); const u = new Uint8Array(bin.length);
-    for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; };
+  // ---- base64 / cripto (igual à app Diário) ----
   const enc = new TextEncoder(), dec = new TextDecoder();
-
-  // ---- cripto (igual à app) ----
-  async function deriveKey(pass, saltB64, iter){
-    const km = await crypto.subtle.importKey("raw", enc.encode(pass.normalize("NFC")), "PBKDF2", false, ["deriveKey"]);
-    return crypto.subtle.deriveKey({name:"PBKDF2", salt:b64d(saltB64), iterations:iter||ITER, hash:"SHA-256"},
-      km, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
-  }
-  async function encBytes(k, bytes){
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, k, bytes);
-    const out = new Uint8Array(12+ct.byteLength); out.set(iv); out.set(new Uint8Array(ct),12); return out;
-  }
-  async function decBytes(k, data){ const u = data instanceof Uint8Array?data:new Uint8Array(data);
+  const b64e = b => { const u=b instanceof Uint8Array?b:new Uint8Array(b); let s="";
+    for(let i=0;i<u.length;i+=32768) s+=String.fromCharCode.apply(null,u.subarray(i,i+32768)); return btoa(s); };
+  const b64d = s => { const bin=atob(s); const u=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; };
+  async function deriveKey(pass, salt, iter){
+    const km=await crypto.subtle.importKey("raw", enc.encode(pass.normalize("NFC")), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({name:"PBKDF2", salt:b64d(salt), iterations:iter||ITER, hash:"SHA-256"},
+      km, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]); }
+  async function encBytes(k, bytes){ const iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv}, k, bytes);
+    const o=new Uint8Array(12+ct.byteLength); o.set(iv); o.set(new Uint8Array(ct),12); return o; }
+  async function decBytes(k, data){ const u=data instanceof Uint8Array?data:new Uint8Array(data);
     return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM", iv:u.slice(0,12)}, k, u.slice(12))); }
   async function encObj(k, obj){ return {v:1, alg:"AES-256-GCM", data:b64e(await encBytes(k, enc.encode(JSON.stringify(obj))))}; }
-  async function decObj(k, cipher){ return JSON.parse(dec.decode(await decBytes(k, b64d(cipher.data)))); }
+  async function decObj(k, c){ return JSON.parse(dec.decode(await decBytes(k, b64d(c.data)))); }
 
-  // ---- helpers de id/data (iguais à app) ----
   const pad = n => String(n).padStart(2,"0");
-  const el = d => { const e = new Date(d); return `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`; };
-  const my = d => { const e = new Date(d); return ["entries", String(e.getFullYear()), pad(e.getMonth()+1)]; };
+  const el = d => { const e=new Date(d); return `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`; };
+  const my = d => { const e=new Date(d); return ["entries", String(e.getFullYear()), pad(e.getMonth()+1)]; };
   const np = () => Date.now().toString(36)+"-"+[...crypto.getRandomValues(new Uint8Array(6))].map(x=>x.toString(16).padStart(2,"0")).join("");
 
   // ---- Google Drive ----
-  async function gfetch(url, opts){
-    const o = opts||{};
-    const r = await fetch(url, {...o, headers:{...(o.headers||{}), Authorization:"Bearer "+token}});
+  async function gfetch(url, opts){ const o=opts||{};
+    const r=await fetch(url, {...o, headers:{...(o.headers||{}), Authorization:"Bearer "+token}});
     if(r.status===401) throw new Error("Sessão Google expirada. Volta a entrar.");
     if(!r.ok){ let m="Erro Google Drive ("+r.status+")"; try{const j=await r.json(); if(j.error&&j.error.message) m+=": "+j.error.message;}catch(e){} throw new Error(m); }
-    return r;
-  }
-  async function listByKind(kind){
-    const out=[]; let tok="";
-    const q = `appProperties has { key='kind' and value='${kind}' } and trashed=false`;
-    do{
-      const url = `${API}/files?q=${encodeURIComponent(q)}&pageSize=1000&spaces=drive&fields=${encodeURIComponent("nextPageToken,files(id,name,appProperties)")}`+(tok?`&pageToken=${tok}`:"");
-      const j = await (await gfetch(url)).json();
-      out.push(...(j.files||[])); tok = j.nextPageToken||"";
-    } while(tok);
-    return out;
-  }
-  async function readFileBytes(id){ const r = await gfetch(`${API}/files/${id}?alt=media`); return new Uint8Array(await r.arrayBuffer()); }
+    return r; }
+  async function listByKind(kind){ const out=[]; let tok="";
+    const q=`appProperties has { key='kind' and value='${kind}' } and trashed=false`;
+    do{ const url=`${API}/files?q=${encodeURIComponent(q)}&pageSize=1000&spaces=drive&fields=${encodeURIComponent("nextPageToken,files(id,name,appProperties)")}`+(tok?`&pageToken=${tok}`:"");
+      const j=await (await gfetch(url)).json(); out.push(...(j.files||[])); tok=j.nextPageToken||""; } while(tok);
+    return out; }
+  async function readBytes(id){ const r=await gfetch(`${API}/files/${id}?alt=media`); return new Uint8Array(await r.arrayBuffer()); }
 
-  const folderCache = new Map();
+  const folderCache=new Map();
   const esc = s => s.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
-  async function findOrCreateFolder(name, parent){
-    const k = parent+"/"+name; if(folderCache.has(k)) return folderCache.get(k);
-    const q = `name='${esc(name)}' and mimeType='${FOLDER}' and trashed=false and '${parent}' in parents`;
-    const j = await (await gfetch(`${API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`)).json();
-    let id = j.files && j.files[0] && j.files[0].id;
-    if(!id){
-      const c = await (await gfetch(`${API}/files?fields=id`, {method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({name, mimeType:FOLDER, parents:[parent]})})).json();
-      id = c.id;
-    }
-    folderCache.set(k, id); return id;
-  }
-  async function pathFolder(parts){ let id="root"; for(const p of [ROOTNAME, ...parts]) id = await findOrCreateFolder(p, id); return id; }
+  async function findOrCreateFolder(name, parent){ const k=parent+"/"+name; if(folderCache.has(k)) return folderCache.get(k);
+    const q=`name='${esc(name)}' and mimeType='${FOLDER}' and trashed=false and '${parent}' in parents`;
+    const j=await (await gfetch(`${API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`)).json();
+    let id=j.files&&j.files[0]&&j.files[0].id;
+    if(!id){ const c=await (await gfetch(`${API}/files?fields=id`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name,mimeType:FOLDER,parents:[parent]})})).json(); id=c.id; }
+    folderCache.set(k,id); return id; }
+  async function pathFolder(parts){ let id="root"; for(const p of [ROOTNAME,...parts]) id=await findOrCreateFolder(p,id); return id; }
 
-  async function driveCreate({name, parentId, mimeType, body, appProperties}){
-    const meta = {name, mimeType, appProperties, parents:[parentId]};
-    const b = "diario"+Math.random().toString(36).slice(2);
-    const blob = new Blob([
+  // criar OU atualizar (fileId -> PATCH)
+  async function driveWrite({fileId, name, parentId, mimeType, body, appProperties}){
+    const meta={name, mimeType, appProperties}; if(!fileId) meta.parents=[parentId];
+    const b="diario"+Math.random().toString(36).slice(2);
+    const blob=new Blob([
       `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
       `--${b}\r\nContent-Type: ${mimeType}\r\n\r\n`, body, `\r\n--${b}--`]);
-    const r = await gfetch(`${UP}/files?uploadType=multipart&fields=id`,
-      {method:"POST", headers:{"Content-Type":`multipart/related; boundary=${b}`}, body:blob});
-    return (await r.json()).id;
-  }
+    const url=fileId?`${UP}/files/${fileId}?uploadType=multipart&fields=id`:`${UP}/files?uploadType=multipart&fields=id`;
+    const r=await gfetch(url,{method:fileId?"PATCH":"POST", headers:{"Content-Type":`multipart/related; boundary=${b}`}, body:blob});
+    return (await r.json()).id; }
 
-  // ---- cofre ----
   async function openVault(pass){
-    const files = await listByKind("vault");
+    const files=await listByKind("vault");
     if(!files.length) throw new Error("Não encontrei o teu diário no Drive. Abre primeiro a app, entra e cria a palavra-passe.");
-    const vault = JSON.parse(dec.decode(await readFileBytes(files[0].id)));
-    const k = await deriveKey(pass, vault.salt, vault.iterations||ITER);
-    try{ const r = await decObj(k, vault.verifier); if(r.check!==CHECK) throw 0; }
+    const vault=JSON.parse(dec.decode(await readBytes(files[0].id)));
+    const k=await deriveKey(pass, vault.salt, vault.iterations||ITER);
+    try{ const r=await decObj(k, vault.verifier); if(r.check!==CHECK) throw 0; }
     catch(e){ throw new Error("Palavra-passe incorreta."); }
-    return k;
-  }
+    return k; }
 
   // ---- thumbnails ----
-  const fit = (w,h,max) => { if(w<=max && h<=max) return {w,h}; const r=w/h; return r>=1?{w:max,h:Math.round(max/r)}:{w:Math.round(max*r),h:max}; };
-  function loadImg(url){ return new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error("imagem inválida")); i.src=url; }); }
-  async function imageMedia(bytes, mime){
-    const url = URL.createObjectURL(new Blob([bytes],{type:mime}));
-    try{
-      const img = await loadImg(url);
-      const d = fit(img.naturalWidth, img.naturalHeight, 420);
-      const c = document.createElement("canvas"); c.width=d.w; c.height=d.h;
-      c.getContext("2d").drawImage(img,0,0,d.w,d.h);
-      return {type:"image", mime, bytes, thumb:c.toDataURL("image/jpeg",0.7), w:img.naturalWidth, h:img.naturalHeight};
-    }catch(e){ return {type:"image", mime, bytes, thumb:null}; }
-    finally{ URL.revokeObjectURL(url); }
-  }
-  function videoMedia(bytes, mime){
-    return new Promise(res=>{
-      const url = URL.createObjectURL(new Blob([bytes],{type:mime}));
-      const v = document.createElement("video"); v.muted=true; v.preload="metadata"; v.src=url;
-      let done=false; const finish = r => { if(done)return; done=true; URL.revokeObjectURL(url); res(r); };
-      const to = setTimeout(()=>finish({type:"video", mime, bytes, thumb:null}), 7000);
-      v.onloadeddata = () => { try{ v.currentTime = Math.min(0.5, (v.duration||1)/2); }catch(e){} };
-      v.onseeked = () => { try{
-        const d = fit(v.videoWidth||320, v.videoHeight||240, 420);
-        const c = document.createElement("canvas"); c.width=d.w; c.height=d.h;
-        c.getContext("2d").drawImage(v,0,0,d.w,d.h);
-        clearTimeout(to); finish({type:"video", mime, bytes, thumb:c.toDataURL("image/jpeg",0.7), w:v.videoWidth, h:v.videoHeight});
-      }catch(e){ clearTimeout(to); finish({type:"video", mime, bytes, thumb:null}); } };
-      v.onerror = () => { clearTimeout(to); finish({type:"video", mime, bytes, thumb:null}); };
-    });
-  }
-  const IMG = /\.(jpe?g|png|gif|webp|heic|heif)$/i, VID = /\.(mp4|mov|m4v|webm|3gp)$/i;
-  const mimeFor = n => { n=n.toLowerCase();
-    if(/\.jpe?g$/.test(n))return"image/jpeg"; if(n.endsWith(".png"))return"image/png";
-    if(n.endsWith(".gif"))return"image/gif"; if(n.endsWith(".webp"))return"image/webp";
-    if(n.endsWith(".heic")||n.endsWith(".heif"))return"image/heic";
+  const fit=(w,h,max)=>{ if(w<=max&&h<=max) return {w,h}; const r=w/h; return r>=1?{w:max,h:Math.round(max/r)}:{w:Math.round(max*r),h:max}; };
+  const loadImg=url=>new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error("imagem inválida")); i.src=url; });
+  async function imageMedia(bytes, mime){ const url=URL.createObjectURL(new Blob([bytes],{type:mime}));
+    try{ const img=await loadImg(url); const d=fit(img.naturalWidth,img.naturalHeight,420);
+      const c=document.createElement("canvas"); c.width=d.w; c.height=d.h; c.getContext("2d").drawImage(img,0,0,d.w,d.h);
+      return {type:"image",mime,thumb:c.toDataURL("image/jpeg",0.7),w:img.naturalWidth,h:img.naturalHeight}; }
+    catch(e){ return {type:"image",mime,thumb:null}; } finally{ URL.revokeObjectURL(url); } }
+  function videoMedia(bytes, mime){ return new Promise(res=>{ const url=URL.createObjectURL(new Blob([bytes],{type:mime}));
+    const v=document.createElement("video"); v.muted=true; v.preload="metadata"; v.src=url; let done=false;
+    const fin=r=>{ if(done)return; done=true; URL.revokeObjectURL(url); res(r); };
+    const to=setTimeout(()=>fin({type:"video",mime,thumb:null}),8000);
+    v.onloadeddata=()=>{ try{ v.currentTime=Math.min(0.5,(v.duration||1)/2); }catch(e){} };
+    v.onseeked=()=>{ try{ const d=fit(v.videoWidth||320,v.videoHeight||240,420);
+      const c=document.createElement("canvas"); c.width=d.w; c.height=d.h; c.getContext("2d").drawImage(v,0,0,d.w,d.h);
+      clearTimeout(to); fin({type:"video",mime,thumb:c.toDataURL("image/jpeg",0.7),w:v.videoWidth,h:v.videoHeight});
+    }catch(e){ clearTimeout(to); fin({type:"video",mime,thumb:null}); } };
+    v.onerror=()=>{ clearTimeout(to); fin({type:"video",mime,thumb:null}); }; }); }
+  const IMG=/\.(jpe?g|png|gif|webp|heic|heif)$/i, VID=/\.(mp4|mov|m4v|webm|3gp)$/i;
+  const mimeFor=n=>{ n=n.toLowerCase();
+    if(/\.jpe?g$/.test(n))return"image/jpeg"; if(n.endsWith(".png"))return"image/png"; if(n.endsWith(".gif"))return"image/gif";
+    if(n.endsWith(".webp"))return"image/webp"; if(n.endsWith(".heic")||n.endsWith(".heif"))return"image/heic";
     if(n.endsWith(".mp4")||n.endsWith(".m4v"))return"video/mp4"; if(n.endsWith(".mov"))return"video/quicktime";
-    if(n.endsWith(".webm"))return"video/webm"; if(n.endsWith(".3gp"))return"video/3gpp";
-    return "application/octet-stream"; };
+    if(n.endsWith(".webm"))return"video/webm"; if(n.endsWith(".3gp"))return"video/3gpp"; return"application/octet-stream"; };
 
-  // ---- mapear Journey -> Diário ----
   function mapEntry(j){
-    const loc = (j.location && j.location.lat!=null)
-      ? {lat:j.location.lat, lon:j.location.lng, label:j.address||undefined}
-      : (j.address ? {label:j.address} : null);
-    return {
-      id: np(),
-      html: j.text || "",
-      date: j.dateOfJournal || j.date || new Date().toISOString(),
-      mood: null,
-      tags: Array.isArray(j.tags) ? j.tags.slice() : [],
-      favorite: !!j.favourite,
-      location: loc,
-      weather: null,
-      media: [],
-      prompt: null,
-      program: null,
-      updatedAt: Date.parse(j.updatedAt || j.dateOfJournal) || Date.now(),
-      journeyId: j.id || null,
-    };
-  }
+    const loc=(j.location&&j.location.lat!=null)?{lat:j.location.lat,lon:j.location.lng,label:j.address||undefined}
+      :(j.address?{label:j.address}:null);
+    return { id:np(), html:j.text||"", date:j.dateOfJournal||j.date||new Date().toISOString(), mood:null,
+      tags:Array.isArray(j.tags)?j.tags.slice():[], favorite:!!j.favourite, location:loc, weather:null,
+      media:[], prompt:null, program:null, updatedAt:Date.parse(j.updatedAt||j.dateOfJournal)||Date.now(), journeyId:j.id||null }; }
 
-  // ---- fluxo principal ----
+  const base = p => p.slice(p.lastIndexOf("/")+1);
+  const dirOf = p => p.includes("/")?p.slice(0,p.lastIndexOf("/")+1):"";
+
   async function run(){
-    $("btnRun").disabled = true;
-    const dry = $("dry").checked;
+    $("btnRun").disabled=true; $("btnAuth").disabled=true;
+    const dry=$("dry").checked;
+    let reader=null;
     try{
-      const pass = $("pass").value;
-      if(!pass){ alert("Escreve a palavra-passe do diário."); $("btnRun").disabled=false; return; }
-      const f = $("file").files[0];
-      if(!f){ alert("Escolhe o ficheiro .zip do Journey."); $("btnRun").disabled=false; return; }
+      const pass=$("pass").value; if(!pass){ alert("Escreve a palavra-passe do diário."); return; }
+      const f=$("file").files[0]; if(!f){ alert("Escolhe o ficheiro .zip do Journey."); return; }
+      if(!window.zip){ throw new Error("Biblioteca de leitura do zip não carregou. Recarrega a página."); }
+      zip.configure({useWebWorkers:false});
 
       log("A abrir o cofre…");
-      key = await openVault(pass);
-      log("Cofre aberto. Palavra-passe correta.", "ok");
+      key=await openVault(pass);
+      log("Cofre aberto. Palavra-passe correta.","ok");
 
-      log("A ler entradas já existentes (para não duplicar)…");
-      const existing = await listByKind("entry");
-      const seen = new Set(existing.map(x => x.appProperties && x.appProperties.jsrc).filter(Boolean));
-      log(`Entradas atuais no diário: ${existing.length}. Já importadas do Journey: ${seen.size}.`);
+      log("A ler o que já existe no diário (para não duplicar)…");
+      const exEntries=await listByKind("entry");
+      const entryMap=new Map();                 // journeyId -> {fileId, jid, upd}
+      for(const x of exEntries){ const a=x.appProperties||{}; if(a.jsrc) entryMap.set(a.jsrc, {fileId:x.id, jid:a.jid, upd:a.upd}); }
+      const exMedia=await listByKind("media");
+      const mediaMap=new Map();                 // srcKey -> {fileId, jid}
+      for(const x of exMedia){ const a=x.appProperties||{}; if(a.jsrc) mediaMap.set(a.jsrc, {fileId:x.id, jid:a.jid}); }
+      log(`No diário: ${exEntries.length} entradas (${entryMap.size} vindas do Journey), ${exMedia.length} ficheiros de media.`);
 
-      log("A abrir o backup…");
-      const zip = await JSZip.loadAsync(f);
-      const paths = Object.keys(zip.files).filter(p => !zip.files[p].dir);
-      const jsonPaths = paths.filter(p => /\.json$/i.test(p));
+      log("A abrir o backup (streaming)…");
+      reader=new zip.ZipReader(new zip.BlobReader(f));
+      const all=(await reader.getEntries()).filter(e=>!e.directory);
+      const jsonEntries=all.filter(e=>/\.json$/i.test(e.filename));
+      const byDir=new Map();
+      for(const e of all){ const d=dirOf(e.filename); if(!byDir.has(d)) byDir.set(d,[]); byDir.get(d).push(e); }
 
-      // emparelhar entradas + media por pasta
-      const items = [];
-      for(const jp of jsonPaths){
-        let j; try{ j = JSON.parse(await zip.files[jp].async("string")); }catch(e){ continue; }
-        if(!j || (j.dateOfJournal==null && j.text==null)) continue; // não é entrada
-        const folder = jp.includes("/") ? jp.slice(0, jp.lastIndexOf("/")+1) : "";
-        const media = paths.filter(p => p!==jp && p.startsWith(folder) && !/\.json$/i.test(p) && !p.slice(folder.length).includes("/"));
-        items.push({j, media});
+      // juntar entradas (lê só os JSON, que são pequenos)
+      const items=[];
+      for(const je of jsonEntries){
+        let j; try{ j=JSON.parse(await je.getData(new zip.TextWriter())); }catch(e){ continue; }
+        if(!j || (j.dateOfJournal==null && j.text==null)) continue;
+        const sibs=(byDir.get(dirOf(je.filename))||[]).filter(e=>e!==je && !/\.json$/i.test(e.filename));
+        items.push({j, media:sibs});
       }
       log(`Entradas no backup: ${items.length}.`);
-      if(!items.length){ log("Não encontrei entradas neste ficheiro.", "warn"); $("btnRun").disabled=false; return; }
+      if(!items.length){ log("Não encontrei entradas neste ficheiro.","warn"); return; }
 
-      let imported=0, skipped=0, mediaCount=0, mediaFail=0;
+      let created=0, updated=0, unchanged=0, mUp=0, mReuse=0, mFail=0;
       for(let n=0; n<items.length; n++){
-        const {j, media} = items[n];
-        setBar((n)/items.length);
-        const entry = mapEntry(j);
-        const title = entry.html.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,42) || "(sem título)";
+        setBar(n/items.length);
+        const {j, media}=items[n];
+        const entry=mapEntry(j);
+        const title=(entry.html.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,42))||"(sem título)";
+        const existing=entry.journeyId?entryMap.get(entry.journeyId):null;
 
-        if(entry.journeyId && seen.has(entry.journeyId)){ skipped++; log(`↷ já existe: ${title}`); continue; }
+        if(existing && existing.upd===String(entry.updatedAt)){ unchanged++; log(`= igual, ignorada: ${title}`); continue; }
 
+        if(existing){
+          // ATUALIZAR (repor) — mantém o id e a media que já lá está
+          log(`${dry?"[simulação] ":""}↻ atualizar: ${el(entry.date)} — ${title}`);
+          if(dry) continue;
+          let keepMedia=[]; try{ const cur=await decObj(key, JSON.parse(dec.decode(await readBytes(existing.fileId)))); keepMedia=cur.media||[]; }catch(e){}
+          entry.id=existing.jid; entry.media=keepMedia;
+          const cipher=await encObj(key, entry);
+          await driveWrite({ fileId:existing.fileId, name:`${el(entry.date)}_${entry.id}.json`, mimeType:"application/json",
+            body:JSON.stringify(cipher), appProperties:{kind:"entry", jid:entry.id, upd:String(entry.updatedAt), d:el(entry.date), jsrc:entry.journeyId||""} });
+          entryMap.set(entry.journeyId, {fileId:existing.fileId, jid:entry.id, upd:String(entry.updatedAt)});
+          updated++; continue;
+        }
+
+        // NOVA entrada
         log(`${dry?"[simulação] ":""}• ${el(entry.date)} — ${title}${media.length?`  (+${media.length} media)`:""}`);
         if(dry) continue;
 
-        // media primeiro
-        for(const mp of media){
+        for(const me of media){
+          const fn=base(me.filename);
+          const kind=VID.test(fn)?"video":(IMG.test(fn)?"image":null);
+          if(!kind){ log(`   (ignorado: ${fn})`,"warn"); continue; }
+          const srcKey=`${entry.journeyId}/${fn}`;
           try{
-            const bytes = await zip.files[mp].async("uint8array");
-            const mime = mimeFor(mp);
-            const kind = VID.test(mp) ? "video" : (IMG.test(mp) ? "image" : null);
-            if(!kind){ log(`   (ignorado: ${mp.split("/").pop()})`, "warn"); continue; }
-            const info = kind==="video" ? await videoMedia(bytes, mime) : await imageMedia(bytes, mime);
-            const mid = np();
-            const cipher = await encBytes(key, info.bytes);
-            await driveCreate({ name:`${mid}.bin`, parentId:await pathFolder(["media"]),
-              mimeType:"application/octet-stream", body:cipher,
-              appProperties:{kind:"media", jid:mid, eid:entry.id, mime:info.mime, upd:"1"} });
+            const bytes=await me.getData(new zip.Uint8ArrayWriter());
+            const mime=mimeFor(fn);
+            const info=kind==="video"?await videoMedia(bytes,mime):await imageMedia(bytes,mime);
+            let mid;
+            const seen=mediaMap.get(srcKey);
+            if(seen){ mid=seen.jid; mReuse++; }      // já existe no Drive — não reenvia
+            else{
+              mid=np();
+              const cipher=await encBytes(key, bytes);
+              await driveWrite({ name:`${mid}.bin`, parentId:await pathFolder(["media"]), mimeType:"application/octet-stream",
+                body:cipher, appProperties:{kind:"media", jid:mid, eid:entry.id, mime, upd:"1", jsrc:srcKey} });
+              mediaMap.set(srcKey,{fileId:"",jid:mid}); mUp++;
+            }
             entry.media.push({id:mid, type:info.type, mime:info.mime, thumb:info.thumb, w:info.w, h:info.h});
-            mediaCount++;
-          }catch(e){ mediaFail++; log(`   erro no media ${mp.split("/").pop()}: ${e.message}`, "err"); }
+          }catch(e){ mFail++; log(`   erro no media ${fn}: ${e.message}`,"err"); }
         }
 
-        // entrada
-        const cipher = await encObj(key, entry);
-        await driveCreate({ name:`${el(entry.date)}_${entry.id}.json`, parentId:await pathFolder(my(entry.date)),
+        const cipher=await encObj(key, entry);
+        const fid=await driveWrite({ name:`${el(entry.date)}_${entry.id}.json`, parentId:await pathFolder(my(entry.date)),
           mimeType:"application/json", body:JSON.stringify(cipher),
           appProperties:{kind:"entry", jid:entry.id, upd:String(entry.updatedAt), d:el(entry.date), jsrc:entry.journeyId||""} });
-        if(entry.journeyId) seen.add(entry.journeyId);
-        imported++;
+        if(entry.journeyId) entryMap.set(entry.journeyId, {fileId:fid, jid:entry.id, upd:String(entry.updatedAt)});
+        created++;
       }
-      setBar(1);
-      log("", "");
+      setBar(1); log("");
       if(dry){
-        log(`Simulação concluída. Seriam importadas ${items.length-skipped} entradas (${skipped} já existiam).`, "ok");
+        log(`Simulação concluída. Novas: ${items.length-updated-unchanged-created} · a atualizar: (ver acima) · já iguais: ${unchanged}.`,"ok");
         log("Tira o visto da simulação e carrega outra vez para gravar.");
       }else{
-        log(`Concluído: ${imported} entradas importadas, ${skipped} ignoradas, ${mediaCount} fotos/vídeos${mediaFail?`, ${mediaFail} com erro`:""}.`, "ok");
-        log("Abre a app Diário e faz sincronizar (ícone da nuvem) — as entradas aparecem lá.");
+        log(`Concluído: ${created} novas, ${updated} atualizadas, ${unchanged} já iguais. Media: ${mUp} enviadas, ${mReuse} reaproveitadas${mFail?`, ${mFail} com erro`:""}.`,"ok");
+        log("Abre a app Diário e toca na nuvem (sincronizar) — as entradas aparecem lá.");
       }
-    }catch(e){
-      log("ERRO: "+e.message, "err");
-    }finally{
-      $("btnRun").disabled = false;
-    }
+    }catch(e){ log("ERRO: "+e.message,"err"); }
+    finally{ try{ if(reader) await reader.close(); }catch(e){} $("btnRun").disabled=false; $("btnAuth").disabled=false; }
   }
 
-  // ---- UI / auth ----
-  function unlockStep2(){ $("card2").style.opacity=1; $("card2").style.pointerEvents="auto";
-    $("card3").style.opacity=1; $("card3").style.pointerEvents="auto"; }
-
-  let tokenClient = null;
+  function unlock(){ for(const id of ["card2","card3"]){ $(id).style.opacity=1; $(id).style.pointerEvents="auto"; } }
+  let tokenClient=null;
   function initAuth(){
-    if(!(window.google && google.accounts && google.accounts.oauth2)){
-      $("authState").textContent = "Não foi possível carregar os serviços Google. Verifica a ligação e recarrega.";
-      $("authState").className = "err"; return;
-    }
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID, scope: SCOPE,
-      callback: resp => {
-        if(resp.error){ $("authState").textContent = "Falha no login: "+(resp.error_description||resp.error); $("authState").className="err"; return; }
-        token = resp.access_token;
-        $("authState").textContent = "Ligado ao Google Drive ✓"; $("authState").className = "ok";
-        $("btnAuth").textContent = "Mudar de conta";
-        unlockStep2();
-      },
-      error_callback: err => { $("authState").textContent = "Login cancelado ou bloqueado."; $("authState").className="warn"; }
-    });
-  }
-  $("btnAuth").addEventListener("click", () => {
-    if(!tokenClient) initAuth();
-    if(tokenClient) tokenClient.requestAccessToken({prompt: token ? "consent" : ""});
-  });
+    if(!(window.google&&google.accounts&&google.accounts.oauth2)){
+      $("authState").textContent="Não foi possível carregar os serviços Google. Verifica a ligação e recarrega.";
+      $("authState").className="err"; return; }
+    tokenClient=google.accounts.oauth2.initTokenClient({ client_id:CLIENT_ID, scope:SCOPE,
+      callback:resp=>{ if(resp.error){ $("authState").textContent="Falha no login: "+(resp.error_description||resp.error); $("authState").className="err"; return; }
+        token=resp.access_token; $("authState").textContent="Ligado ao Google Drive ✓"; $("authState").className="ok";
+        $("btnAuth").textContent="Mudar de conta"; unlock(); },
+      error_callback:()=>{ $("authState").textContent="Login cancelado ou bloqueado."; $("authState").className="warn"; } }); }
+  $("btnAuth").addEventListener("click",()=>{ if(!tokenClient) initAuth(); if(tokenClient) tokenClient.requestAccessToken({prompt: token?"":""}); });
   $("btnRun").addEventListener("click", run);
-  window.addEventListener("load", () => { setTimeout(initAuth, 400); });
+  window.addEventListener("load",()=>setTimeout(initAuth,400));
 })();
 </script>
 </body>
