@@ -376,7 +376,7 @@
           if(dry){ return; }
 
           const entry={ id: existing?existing.jid:np(), html:g.html, text:htmlToText(g.html), date:g.firstTs.toISOString(), mood:null,
-            tags:["whatsapp"], favorite:false, location:null, weather:null, media:[], prompt:null, program:null,
+            tags:["whatsapp"], source:"whatsapp", favorite:false, location:null, weather:null, media:[], prompt:null, program:null,
             createdAt:g.firstTs.getTime(), updatedAt:Date.now() };
           let cur=null;
           if(existing){ try{ cur=await decObj(key, JSON.parse(dec.decode(await readBytes(existing.fileId)))); }catch(e){} }

@@ -213,7 +213,7 @@
     const upd=Date.parse(j.updatedAt||j.dateOfJournal)||Date.now();
     const date=j.dateOfJournal||j.date||new Date().toISOString();
     return { id:np(), html, text:htmlToText(html), date, mood:null,
-      tags:Array.isArray(j.tags)?j.tags.slice():[], favorite:!!j.favourite, location:loc, weather:null,
+      tags:Array.isArray(j.tags)?j.tags.slice():[], source:"journey", favorite:!!j.favourite, location:loc, weather:null,
       media:[], prompt:null, program:null, createdAt:(Date.parse(date)||upd), updatedAt:upd, journeyId:j.id||null }; }
 
   const base = p => p.slice(p.lastIndexOf("/")+1);
