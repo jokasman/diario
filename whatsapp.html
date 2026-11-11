@@ -77,7 +77,7 @@
     <label class="check"><input type="checkbox" id="dry" checked />
       <span>Simular primeiro (mostra o que seria importado, <b>sem gravar</b> nada)</span></label>
     <div class="note">Cada <b>dia</b> dá uma entrada com todas as mensagens desse dia, por ordem. Cada mensagem leva a <b>hora e o nome</b>
-    de quem a escreveu (os nomes escolhidos acima) e a primeira linha diz quem escreveu nesse dia. Mensagens de voz e documentos <b>não são importados</b> (a Diário só aceita fotos e vídeos).
+    de quem a escreveu (os nomes escolhidos acima) e a primeira linha diz quem escreveu nesse dia. As <b>fotos e vídeos</b> ficam anexados à entrada, sem aparecerem no texto, e as entradas levam a etiqueta <b>#luís</b>. Mensagens de voz e documentos <b>não são importados</b> (a Diário só aceita fotos e vídeos). Dias já importados com a versão anterior são <b>mantidos</b>.
     <b>Mantém esta página aberta</b> até ao fim; se parar, corre outra vez e ela continua.</div>
   </div>
 
@@ -105,7 +105,8 @@
   const ROOTNAME = "Journey";
   const ITER = 310000;
   const CHECK = "diario-vault-check-v1";
-  const FMT = "wa2";
+  const FMT = "wa3";
+  const WA_TAG = "luís";      // etiqueta posta em todas as entradas importadas do WhatsApp
   const CONCURRENCY = 3;
 
   const $ = id => document.getElementById(id);
@@ -270,8 +271,7 @@
         if(isSticker && !withStickers){ stats.stickers++; continue; }
         const cap=m.caption?" "+m.caption:"";
         if(IMG.test(f)||VID.test(f)){
-          const tag=isSticker?"sticker":(VID.test(f)?"vídeo":"foto");
-          if(files.has(f)){ touch(); g.media.push(f); stats.media++; put(`[${tag}]${cap}`); }
+          if(files.has(f)){ touch(); g.media.push(f); stats.media++; if(m.caption) put(m.caption); }
           else { stats.missing++; put(`[ficheiro em falta: ${f}]${cap}`); }
         } else if(AUD.test(f)){ stats.voice++; put(`[mensagem de voz — não importada]${cap}`); }
         else { stats.docs++; put(`[documento: ${f} — não importado]${cap}`); }
@@ -344,7 +344,7 @@
   async function run(){
     $("btnRun").disabled=true; $("btnAuth").disabled=true;
     const dry=$("dry").checked; let z=null;
-    const st={created:0, updated:0, unchanged:0, mUp:0, mReuse:0, mFail:0};
+    const st={created:0, updated:0, unchanged:0, legacy:0, mUp:0, mReuse:0, mFail:0};
     try{
       const pass=$("pass").value; if(!pass){ alert("Escreve a palavra-passe do diário."); return; }
       const f=$("file").files[0]; if(!f){ alert("Escolhe o ficheiro .zip do WhatsApp."); return; }
@@ -355,7 +355,7 @@
       log("A abrir o cofre…"); key=await openVault(pass); log("Cofre aberto. Palavra-passe correta.","ok");
       log("A ler o que já existe no diário (para não duplicar)…");
       const exEntries=await listByKind("entry"); const entryMap=new Map();
-      for(const x of exEntries){ const a=x.appProperties||{}; if(a.jsrc) entryMap.set(a.jsrc,{fileId:x.id,jid:a.jid,wh:a.wh||""}); }
+      for(const x of exEntries){ const a=x.appProperties||{}; if(a.jsrc) entryMap.set(a.jsrc,{fileId:x.id,jid:a.jid,wh:a.wh||"",fmt:a.fmt||""}); }
       const exMedia=await listByKind("media"); const mediaMap=new Map();
       for(const x of exMedia){ const a=x.appProperties||{}; if(a.jsrc) mediaMap.set(a.jsrc,{jid:a.jid}); }
       log(`No diário: ${exEntries.length} entradas e ${exMedia.length} ficheiros de media.`);
@@ -378,17 +378,18 @@
           const wh=await shortHash(g.html+"|"+g.media.join(","));
           const existing=entryMap.get(srcKey);
           const label=`${g.day} (${g.title})`;
+          if(existing && existing.fmt!==FMT){ st.legacy++; log(`↷ ${label}: importada com a versão anterior — mantida`); return; }
           if(existing && existing.wh===wh){ st.unchanged++; return; }
           const nLines=g.lines.length, nMed=g.media.length;
           log(`${dry?"[simulação] ":""}${existing?"↻ atualizar":"•"} ${label} (${nLines} linhas${nMed?`, ${nMed} media`:""})`);
           if(dry){ return; }
 
           const entry={ id: existing?existing.jid:np(), html:g.html, text:htmlToText(g.html), date:g.firstTs.toISOString(), mood:null,
-            tags:["whatsapp"], source:"whatsapp", favorite:false, location:null, weather:null, media:[], prompt:null, program:null,
+            tags:[WA_TAG], source:"whatsapp", favorite:false, location:null, weather:null, media:[], prompt:null, program:null,
             createdAt:g.firstTs.getTime(), updatedAt:Date.now() };
           let cur=null;
           if(existing){ try{ cur=await decObj(key, JSON.parse(dec.decode(await readBytes(existing.fileId)))); }catch(e){} }
-          if(cur){ entry.date=cur.date||entry.date; entry.createdAt=cur.createdAt||entry.createdAt; entry.favorite=!!cur.favorite; entry.tags=[...new Set([...(cur.tags||[]),"whatsapp"])]; entry.media=(cur.media||[]).slice(); }
+          if(cur){ entry.date=cur.date||entry.date; entry.createdAt=cur.createdAt||entry.createdAt; entry.favorite=!!cur.favorite; entry.tags=[...new Set([...(cur.tags||[]),WA_TAG])]; entry.media=(cur.media||[]).slice(); }
           const haveIds=new Set(entry.media.map(m=>m.id));
 
           for(const fn of g.media){
@@ -411,15 +412,15 @@
           const fid=await driveWrite({ fileId:existing?existing.fileId:undefined, name:`${el(entry.date)}_${entry.id}.json`,
             parentId:existing?undefined:await pathFolder(my(entry.date)), mimeType:"application/json",
             body:JSON.stringify(await encObj(key,entry)), appProperties:props });
-          entryMap.set(srcKey,{fileId:fid, jid:entry.id, wh});
+          entryMap.set(srcKey,{fileId:fid, jid:entry.id, wh, fmt:FMT});
           existing?st.updated++:st.created++;
         }catch(e){ log("erro numa entrada: "+e.message,"err"); st.mFail++; }
         finally{ tick(); }
       });
 
       log("");
-      if(dry){ log(`Simulação concluída: ${list.length-st.unchanged} entradas a criar/atualizar, ${st.unchanged} já iguais.`,"ok"); log("Tira o visto da simulação e carrega outra vez para gravar."); }
-      else{ log(`Concluído: ${st.created} novas, ${st.updated} atualizadas, ${st.unchanged} já iguais. Media: ${st.mUp} enviadas, ${st.mReuse} reaproveitadas${st.mFail?`, ${st.mFail} com erro`:""}.`,"ok");
+      if(dry){ log(`Simulação concluída: ${list.length-st.unchanged-st.legacy} entradas a criar/atualizar, ${st.unchanged} já iguais${st.legacy?`, ${st.legacy} mantidas (versão anterior)`:""}.`,"ok"); log("Tira o visto da simulação e carrega outra vez para gravar."); }
+      else{ log(`Concluído: ${st.created} novas, ${st.updated} atualizadas, ${st.unchanged} já iguais${st.legacy?`, ${st.legacy} mantidas (versão anterior)`:""}. Media: ${st.mUp} enviadas, ${st.mReuse} reaproveitadas${st.mFail?`, ${st.mFail} com erro`:""}.`,"ok");
         log("Abre a app Diário e toca na nuvem (sincronizar) — as entradas aparecem lá."); }
     }catch(e){ log("ERRO: "+e.message,"err"); }
     finally{ try{ z&&await z.reader.close(); }catch(e){} releaseWake(); $("btnAuth").disabled=false; updateRunState(); }
