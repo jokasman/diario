@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#3d5a80" />
+<title>Importar do WhatsApp · Diário</title>
+<style>
+  :root{
+    --bg:#0f1720; --panel:#16202b; --panel2:#1d2a38; --line:#2a3a4c;
+    --text:#e8edf2; --muted:#9fb0c0; --accent:#3d5a80; --accent2:#5b7fb0;
+    --ok:#3fb27f; --warn:#d8a24a; --err:#e06a6a;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f6f3ee; --panel:#ffffff; --panel2:#f0ece4; --line:#e2dbcf;
+      --text:#23303c; --muted:#5d6b78; --accent:#3d5a80; --accent2:#2f4a73;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+  .wrap{max-width:680px;margin:0 auto;padding:24px 16px 64px}
+  h1{font-size:1.5rem;margin:.2em 0 .1em;display:flex;align-items:center;gap:10px}
+  h1 img{width:34px;height:34px;border-radius:8px}
+  .sub{color:var(--muted);margin:.2em 0 1.4em}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+  .step{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:700;margin-bottom:6px}
+  label{display:block;font-weight:600;margin:10px 0 6px}
+  input[type=password],input[type=file],input[type=text],select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:1rem}
+  button{appearance:none;border:0;border-radius:10px;padding:13px 18px;font-size:1rem;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .big{width:100%;padding:15px;font-size:1.05rem}
+  .muted{color:var(--muted)}
+  .check{display:flex;gap:8px;align-items:flex-start;margin:12px 0;font-weight:400}
+  .check input{margin-top:4px;width:auto}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+  .note{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.88rem;color:var(--muted);margin-top:10px}
+  .summary{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.9rem;margin-top:10px;white-space:pre-wrap}
+  .log{background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;white-space:pre-wrap;max-height:360px;overflow:auto;margin-top:12px;color:#cfe}
+  @media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .log{background:#1a2430;color:#cfe}}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+  .bar{height:8px;background:var(--panel2);border-radius:999px;overflow:hidden;margin-top:12px}
+  .bar>i{display:block;height:100%;width:0;background:var(--accent2);transition:width .2s}
+  .hide{display:none}
+  a{color:var(--accent2)}
+  .foot{color:var(--muted);font-size:.82rem;margin-top:22px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><img src="./icon.svg" alt=""/> Importar do WhatsApp</h1>
+  <p class="sub">Traz uma conversa do WhatsApp (exportada com multimédia) para o teu Diário. Tudo é cifrado
+  <b>no teu dispositivo</b> com a tua palavra-passe e gravado na tua pasta do Google Drive.</p>
+
+  <div class="card">
+    <div class="step">Passo 1 — Entrar com Google</div>
+    <p class="muted" id="authState">É a mesma conta que usas no diário.</p>
+    <button id="btnAuth" class="big">Entrar com Google</button>
+  </div>
+
+  <div class="card" id="card2" style="opacity:.5;pointer-events:none">
+    <div class="step">Passo 2 — Conversa e palavra-passe</div>
+    <label for="file">Ficheiro exportado do WhatsApp (.zip)</label>
+    <input type="file" id="file" accept=".zip,application/zip" />
+    <div class="summary hide" id="summary"></div>
+
+    <label for="me">Quem és tu nesta conversa?</label>
+    <select id="me" disabled><option value="">— escolhe primeiro o ficheiro —</option></select>
+    <div class="grid2">
+      <div><label for="roleMe">Nome nas tuas mensagens</label><input type="text" id="roleMe" value="Pai" /></div>
+      <div><label for="roleOther">Nome nas outras</label><input type="text" id="roleOther" value="Mãe" /></div>
+    </div>
+    <label class="check"><input type="checkbox" id="stickers" /><span>Incluir <b>stickers</b> como imagens (por omissão são ignorados)</span></label>
+
+    <label for="pass">Palavra-passe do diário</label>
+    <input type="password" id="pass" placeholder="a mesma que usas na app" autocomplete="off" />
+    <label class="check"><input type="checkbox" id="dry" checked />
+      <span>Simular primeiro (mostra o que seria importado, <b>sem gravar</b> nada)</span></label>
+    <div class="note">Cada <b>dia</b> e cada <b>pessoa</b> dá uma entrada: as mensagens do mesmo dia ficam juntas e a
+    primeira linha é o nome escolhido acima. Mensagens de voz e documentos <b>não são importados</b> (a Diário só aceita fotos e vídeos).
+    <b>Mantém esta página aberta</b> até ao fim; se parar, corre outra vez e ela continua.</div>
+  </div>
+
+  <div class="card" id="card3" style="opacity:.5;pointer-events:none">
+    <div class="step">Passo 3 — Importar</div>
+    <button id="btnRun" class="big" disabled>Importar conversa</button>
+    <div class="bar hide" id="barWrap"><i id="bar"></i></div>
+    <div class="log hide" id="log"></div>
+  </div>
+
+  <p class="foot">Nunca apaga o que já tens. Se importares outra vez, só é atualizado o que mudou e a media que já lá está
+  não volta a ser enviada. Também podes <a href="./import.html">importar do Journey</a>.</p>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@zip.js/zip.js@2.7.52/dist/zip-no-worker.min.js"></script>
+<script>
+(() => {
+  "use strict";
+  const CLIENT_ID = "245600677941-jd73oubjd43rjngqln2nuvu8g3n5e3f9.apps.googleusercontent.com";
+  const SCOPE = "https://www.googleapis.com/auth/drive.file openid email";
+  const API = "https://www.googleapis.com/drive/v3";
+  const UP  = "https://www.googleapis.com/upload/drive/v3";
+  const FOLDER = "application/vnd.google-apps.folder";
+  const ROOTNAME = "Journey";
+  const ITER = 310000;
+  const CHECK = "diario-vault-check-v1";
+  const FMT = "wa1";
+  const CONCURRENCY = 3;
+
+  const $ = id => document.getElementById(id);
+  const logEl = $("log"), barWrap = $("barWrap"), bar = $("bar");
+  let token = null, key = null, parsed = null;
+
+  function log(msg, cls){ logEl.classList.remove("hide"); const d=document.createElement("div");
+    if(cls) d.className=cls; d.textContent=msg; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
+  let progDone=0, progTotal=0;
+  const tick = () => { progDone++; if(progTotal){ barWrap.classList.remove("hide"); bar.style.width=Math.round(progDone/progTotal*100)+"%"; } };
+
+  // ---- base64 / cripto (igual à app Diário) ----
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  const b64e = b => { const u=b instanceof Uint8Array?b:new Uint8Array(b); let s="";
+    for(let i=0;i<u.length;i+=32768) s+=String.fromCharCode.apply(null,u.subarray(i,i+32768)); return btoa(s); };
+  const b64d = s => { const bin=atob(s); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; };
+  async function deriveKey(pass, salt, iter){
+    const km=await crypto.subtle.importKey("raw", enc.encode(pass.normalize("NFC")), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({name:"PBKDF2", salt:b64d(salt), iterations:iter||ITER, hash:"SHA-256"}, km, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]); }
+  async function encBytes(k, bytes){ const iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv}, k, bytes);
+    const o=new Uint8Array(12+ct.byteLength); o.set(iv); o.set(new Uint8Array(ct),12); return o; }
+  async function decBytes(k, data){ const u=data instanceof Uint8Array?data:new Uint8Array(data);
+    return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM", iv:u.slice(0,12)}, k, u.slice(12))); }
+  async function encObj(k, obj){ return {v:1, alg:"AES-256-GCM", data:b64e(await encBytes(k, enc.encode(JSON.stringify(obj))))}; }
+  async function decObj(k, c){ return JSON.parse(dec.decode(await decBytes(k, b64d(c.data)))); }
+
+  const pad = n => String(n).padStart(2,"0");
+  const el = d => { const e=new Date(d); return `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`; };
+  const my = d => { const e=new Date(d); return ["entries", String(e.getFullYear()), pad(e.getMonth()+1)]; };
+  const np = () => Date.now().toString(36)+"-"+[...crypto.getRandomValues(new Uint8Array(6))].map(x=>x.toString(16).padStart(2,"0")).join("");
+  const htmlToText = t => ((new DOMParser().parseFromString((t||"").replace(/<\/(p|h\d|li|blockquote)>/g,"$&\n"),"text/html").body.textContent)||"").replace(/\n{3,}/g,"\n\n").trim();
+  const escHtml = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  async function shortHash(s){ const h=new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s))); return [...h.slice(0,8)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+
+  // ---- Google Drive ----
+  async function gfetch(url, opts){ const o=opts||{};
+    const r=await fetch(url, {...o, headers:{...(o.headers||{}), Authorization:"Bearer "+token}});
+    if(r.status===401) throw new Error("Sessão Google expirada. Volta a entrar.");
+    if(!r.ok){ let m="Erro Google Drive ("+r.status+")"; try{const j=await r.json(); if(j.error&&j.error.message) m+=": "+j.error.message;}catch(e){} throw new Error(m); }
+    return r; }
+  async function listByKind(kind){ const out=[]; let tok="";
+    const q=`appProperties has { key='kind' and value='${kind}' } and trashed=false`;
+    do{ const url=`${API}/files?q=${encodeURIComponent(q)}&pageSize=1000&spaces=drive&fields=${encodeURIComponent("nextPageToken,files(id,name,appProperties)")}`+(tok?`&pageToken=${tok}`:"");
+      const j=await (await gfetch(url)).json(); out.push(...(j.files||[])); tok=j.nextPageToken||""; } while(tok);
+    return out; }
+  async function readBytes(id){ const r=await gfetch(`${API}/files/${id}?alt=media`); return new Uint8Array(await r.arrayBuffer()); }
+  const folderCache=new Map();
+  const esc = s => s.replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  function findOrCreateFolder(name, parent){ const k=parent+"/"+name; if(folderCache.has(k)) return folderCache.get(k);
+    const p=(async()=>{ const q=`name='${esc(name)}' and mimeType='${FOLDER}' and trashed=false and '${parent}' in parents`;
+      const j=await (await gfetch(`${API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`)).json();
+      let id=j.files&&j.files[0]&&j.files[0].id;
+      if(!id){ const c=await (await gfetch(`${API}/files?fields=id`,{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({name,mimeType:FOLDER,parents:[parent]})})).json(); id=c.id; }
+      return id; })();
+    folderCache.set(k,p); return p; }
+  async function pathFolder(parts){ let id="root"; for(const p of [ROOTNAME,...parts]) id=await findOrCreateFolder(p,id); return id; }
+  async function driveWrite({fileId, name, parentId, mimeType, body, appProperties}){
+    const meta={name, mimeType, appProperties}; if(!fileId) meta.parents=[parentId];
+    const b="diario"+Math.random().toString(36).slice(2);
+    const blob=new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+      `--${b}\r\nContent-Type: ${mimeType}\r\n\r\n`, body, `\r\n--${b}--`]);
+    const url=fileId?`${UP}/files/${fileId}?uploadType=multipart&fields=id`:`${UP}/files?uploadType=multipart&fields=id`;
+    const r=await gfetch(url,{method:fileId?"PATCH":"POST", headers:{"Content-Type":`multipart/related; boundary=${b}`}, body:blob});
+    return (await r.json()).id; }
+
+  async function openVault(pass){
+    const files=await listByKind("vault");
+    if(!files.length) throw new Error("Não encontrei o teu diário no Drive. Abre primeiro a app, entra e cria a palavra-passe.");
+    const vault=JSON.parse(dec.decode(await readBytes(files[0].id)));
+    let k=await deriveKey(pass, vault.salt, vault.iterations||ITER);
+    try{
+      if(vault.wrapped){ const raw=await decBytes(k, b64d(vault.wrapped.data));
+        k=await crypto.subtle.importKey("raw", raw, {name:"AES-GCM"}, false, ["encrypt","decrypt"]); }
+      const r=await decObj(k, vault.verifier); if(r.check!==CHECK) throw 0;
+    }catch(e){ throw new Error("Palavra-passe incorreta."); }
+    return k; }
+
+  // ---- thumbnails ----
+  const fit=(w,h,max)=>{ if(w<=max&&h<=max) return {w,h}; const r=w/h; return r>=1?{w:max,h:Math.round(max/r)}:{w:Math.round(max*r),h:max}; };
+  const loadImg=url=>new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error("imagem inválida")); i.src=url; });
+  async function imageMedia(bytes, mime){ const url=URL.createObjectURL(new Blob([bytes],{type:mime}));
+    try{ const img=await loadImg(url); const d=fit(img.naturalWidth,img.naturalHeight,420);
+      const c=document.createElement("canvas"); c.width=d.w; c.height=d.h; c.getContext("2d").drawImage(img,0,0,d.w,d.h);
+      return {type:"image",mime,thumb:c.toDataURL("image/jpeg",0.7),w:img.naturalWidth,h:img.naturalHeight}; }
+    catch(e){ return {type:"image",mime,thumb:null}; } finally{ URL.revokeObjectURL(url); } }
+  function videoMedia(bytes, mime){ return new Promise(res=>{ const url=URL.createObjectURL(new Blob([bytes],{type:mime}));
+    const v=document.createElement("video"); v.muted=true; v.preload="metadata"; v.src=url; let done=false;
+    const fin=r=>{ if(done)return; done=true; URL.revokeObjectURL(url); res(r); };
+    const to=setTimeout(()=>fin({type:"video",mime,thumb:null}),8000);
+    v.onloadeddata=()=>{ try{ v.currentTime=Math.min(0.5,(v.duration||1)/2); }catch(e){} };
+    v.onseeked=()=>{ try{ const d=fit(v.videoWidth||320,v.videoHeight||240,420);
+      const c=document.createElement("canvas"); c.width=d.w; c.height=d.h; c.getContext("2d").drawImage(v,0,0,d.w,d.h);
+      clearTimeout(to); fin({type:"video",mime,thumb:c.toDataURL("image/jpeg",0.7),w:v.videoWidth,h:v.videoHeight});
+    }catch(e){ clearTimeout(to); fin({type:"video",mime,thumb:null}); } };
+    v.onerror=()=>{ clearTimeout(to); fin({type:"video",mime,thumb:null}); }; }); }
+  const IMG=/\.(jpe?g|png|gif|webp|heic|heif)$/i, VID=/\.(mp4|mov|m4v|webm|3gp)$/i, AUD=/\.(opus|ogg|oga|m4a|mp3|aac|amr|wav)$/i;
+  const mimeFor=n=>{ n=n.toLowerCase();
+    if(/\.jpe?g$/.test(n))return"image/jpeg"; if(n.endsWith(".png"))return"image/png"; if(n.endsWith(".gif"))return"image/gif";
+    if(n.endsWith(".webp"))return"image/webp"; if(n.endsWith(".heic")||n.endsWith(".heif"))return"image/heic";
+    if(n.endsWith(".mp4")||n.endsWith(".m4v"))return"video/mp4"; if(n.endsWith(".mov"))return"video/quicktime";
+    if(n.endsWith(".webm"))return"video/webm"; if(n.endsWith(".3gp"))return"video/3gpp"; return"application/octet-stream"; };
+
+  // ======================= LEITOR DA CONVERSA =======================
+  const TS = /^[‎‏]?(\d{1,2})\/(\d{1,2})\/(\d{2,4}),? (\d{1,2}):(\d{2})(?::(\d{2}))?\s*-\s(.*)$/;
+  const ATTACH = /^(.+?)\s+\((?:ficheiro anexado|file attached|arquivo anexado)\)\s*$/i;
+  const INVIS = /[‎‏‪-‮⁦-⁩﻿]/g;
+  const DELETED = /^(?:Eliminou esta mensagem|Esta mensagem foi eliminada|Mensagem apagada|You deleted this message|This message was deleted)\.?$/i;
+  const OMITTED = /^<(?:Multimédia não revelada|Media omitted|Multimedia omitida)>$/i;
+  const EDITED = /\s*<(?:Esta mensagem foi editada|This message was edited|Mensagem editada)>\s*$/i;
+
+  function parseChat(text){
+    const lines=text.replace(/^﻿/,"").split(/\r?\n/);
+    // 1.º passo: ordem da data (dia/mês ou mês/dia)
+    let dayFirst=0, monthFirst=0;
+    for(const l of lines){ const m=TS.exec(l); if(!m) continue; const a=+m[1], b=+m[2]; if(a>12) dayFirst++; if(b>12) monthFirst++; }
+    const mdy = monthFirst>0 && dayFirst===0;
+    const raw=[]; let cur=null;
+    const push=()=>{ if(cur) raw.push(cur); cur=null; };
+    for(const l of lines){
+      const m=TS.exec(l);
+      if(m){
+        push();
+        let d=+(mdy?m[2]:m[1]), mo=+(mdy?m[1]:m[2]), y=+m[3]; if(y<100) y+=2000;
+        const ts=new Date(y,mo-1,d,+m[4],+m[5],m[6]?+m[6]:0);
+        const rest=m[7];
+        const am=/^([^:\n]{1,40}): ([\s\S]*)$/.exec(rest);
+        if(am && !/["“”]/.test(am[1])) cur={author:am[1].replace(INVIS,"").trim(), ts, lines:[am[2]]};
+        else cur={system:true, ts};
+      } else if(cur && !cur.system) cur.lines.push(l);
+    }
+    push();
+    const msgs=[];
+    for(const r of raw){
+      if(r.system) continue;
+      const first=r.lines[0].replace(INVIS,"").trim();
+      const am=ATTACH.exec(first);
+      if(am){ msgs.push({author:r.author, ts:r.ts, file:am[1].trim(), caption:r.lines.slice(1).join("\n").replace(INVIS,"").trim()}); continue; }
+      let t=r.lines.join("\n").replace(INVIS,"").replace(EDITED,"").trim();
+      if(!t || DELETED.test(t) || OMITTED.test(t)) continue;
+      msgs.push({author:r.author, ts:r.ts, text:t});
+    }
+    return {msgs, mdy};
+  }
+
+  // agrupa por dia + pessoa (eu / outros). `files` = Map(nome -> entrada do zip)
+  function buildGroups(msgs, meName, roleMe, roleOther, files, withStickers){
+    const groups=new Map(); const stats={media:0, missing:0, voice:0, docs:0, stickers:0};
+    for(const m of msgs){
+      const who = m.author===meName ? "me" : "other";
+      const day=el(m.ts), k=day+"|"+who;
+      let g=groups.get(k);
+      if(!g){ g={day, who, role: who==="me"?roleMe:roleOther, firstTs:m.ts, lines:[], media:[]}; groups.set(k,g); }
+      const hhmm=pad(m.ts.getHours())+":"+pad(m.ts.getMinutes());
+      if(m.file){
+        const f=m.file, isSticker=/^STK-/i.test(f);
+        if(isSticker && !withStickers){ stats.stickers++; continue; }
+        if(IMG.test(f)||VID.test(f)){
+          if(files.has(f)){ g.media.push(f); stats.media++; } else { stats.missing++; g.lines.push(`${hhmm} — [ficheiro em falta: ${f}]`); }
+          if(m.caption) g.lines.push(`${hhmm} — ${m.caption}`);
+        } else if(AUD.test(f)){ stats.voice++; g.lines.push(`${hhmm} — [mensagem de voz — não importada]`); if(m.caption) g.lines.push(`${hhmm} — ${m.caption}`); }
+        else { stats.docs++; g.lines.push(`${hhmm} — [documento: ${f} — não importado]`); if(m.caption) g.lines.push(`${hhmm} — ${m.caption}`); }
+      } else g.lines.push(`${hhmm} — ${m.text}`);
+    }
+    const list=[...groups.values()].filter(g=>g.lines.length||g.media.length).sort((a,b)=>a.firstTs-b.firstTs||(a.who==="me"?-1:1));
+    for(const g of list){
+      g.html=`<h3>${escHtml(g.role)}</h3>`+g.lines.map(t=>`<p>${escHtml(t).replace(/\n/g,"<br>")}</p>`).join("");
+    }
+    return {list, stats};
+  }
+
+  const baseName = p => p.slice(p.lastIndexOf("/")+1);
+  function chatSlug(txtName){
+    let n=baseName(txtName).replace(/\.txt$/i,"").replace(/^(?:Conversa no WhatsApp com|WhatsApp Chat with|Conversa do WhatsApp com)\s+/i,"");
+    n=n.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+    return n||"conversa"; }
+
+  // lê o zip (só o índice e o ficheiro de texto)
+  async function loadZip(file){
+    if(!window.zip) throw new Error("Biblioteca de leitura do zip não carregou. Recarrega a página.");
+    zip.configure({useWebWorkers:false});
+    const reader=new zip.ZipReader(new zip.BlobReader(file));
+    const all=(await reader.getEntries()).filter(e=>!e.directory);
+    const txts=all.filter(e=>/\.txt$/i.test(e.filename)).sort((a,b)=>b.uncompressedSize-a.uncompressedSize);
+    if(!txts.length){ await reader.close(); throw new Error("Não encontrei o ficheiro de texto da conversa neste .zip."); }
+    const text=await txts[0].getData(new zip.TextWriter());
+    const files=new Map(); for(const e of all) if(e!==txts[0]) files.set(baseName(e.filename), e);
+    return {reader, txt:txts[0], text, files};
+  }
+
+  async function onFile(){
+    parsed=null; $("summary").classList.add("hide"); $("btnRun").disabled=true;
+    const sel=$("me"); sel.innerHTML='<option value="">— escolhe primeiro o ficheiro —</option>'; sel.disabled=true;
+    const f=$("file").files[0]; if(!f) return;
+    $("summary").classList.remove("hide"); $("summary").textContent="A ler a conversa…";
+    let z=null;
+    try{
+      z=await loadZip(f);
+      const {msgs}=parseChat(z.text);
+      if(!msgs.length) throw new Error("Não encontrei mensagens. O formato do texto pode ser diferente do esperado.");
+      const counts=new Map(); for(const m of msgs) counts.set(m.author,(counts.get(m.author)||0)+1);
+      const authors=[...counts.entries()].sort((a,b)=>b[1]-a[1]);
+      sel.innerHTML='<option value="">— escolhe —</option>'+authors.map(([a,n])=>`<option value="${escHtml(a)}">${escHtml(a)} (${n} mensagens)</option>`).join("");
+      sel.disabled=false;
+      parsed={name:f.name, slug:chatSlug(z.txt.filename), nMsgs:msgs.length, authors};
+      refreshSummary();
+    }catch(e){ $("summary").textContent="Erro: "+e.message; $("summary").className="summary err"; }
+    finally{ try{ z&&await z.reader.close(); }catch(e){} }
+  }
+  function refreshSummary(){
+    if(!parsed) return;
+    $("summary").className="summary";
+    $("summary").textContent=`Conversa «${parsed.slug}»: ${parsed.nMsgs} mensagens de ${parsed.authors.length} ${parsed.authors.length===1?"pessoa":"pessoas"}.\nEscolhe quem és tu para continuar.`;
+    updateRunState();
+  }
+  function updateRunState(){ $("btnRun").disabled=!(parsed && $("me").value); }
+
+  // ======================= ROTINA PRINCIPAL =======================
+  let wake=null;
+  async function acquireWake(){ try{ if("wakeLock" in navigator) wake=await navigator.wakeLock.request("screen"); }catch(e){} }
+  function releaseWake(){ try{ wake&&wake.release(); }catch(e){} wake=null; }
+
+  async function pool(items, limit, worker){ let idx=0; const runners=[];
+    const next=async()=>{ while(idx<items.length){ const i=idx++; await worker(items[i]); } };
+    for(let i=0;i<Math.min(limit,items.length);i++) runners.push(next()); await Promise.all(runners); }
+
+  async function run(){
+    $("btnRun").disabled=true; $("btnAuth").disabled=true;
+    const dry=$("dry").checked; let z=null;
+    const st={created:0, updated:0, unchanged:0, mUp:0, mReuse:0, mFail:0};
+    try{
+      const pass=$("pass").value; if(!pass){ alert("Escreve a palavra-passe do diário."); return; }
+      const f=$("file").files[0]; if(!f){ alert("Escolhe o ficheiro .zip do WhatsApp."); return; }
+      const meName=$("me").value; if(!meName){ alert("Escolhe quem és tu nesta conversa."); return; }
+      const roleMe=$("roleMe").value.trim()||"Pai", roleOther=$("roleOther").value.trim()||"Mãe";
+      const withStickers=$("stickers").checked;
+
+      log("A abrir o cofre…"); key=await openVault(pass); log("Cofre aberto. Palavra-passe correta.","ok");
+      log("A ler o que já existe no diário (para não duplicar)…");
+      const exEntries=await listByKind("entry"); const entryMap=new Map();
+      for(const x of exEntries){ const a=x.appProperties||{}; if(a.jsrc) entryMap.set(a.jsrc,{fileId:x.id,jid:a.jid,wh:a.wh||""}); }
+      const exMedia=await listByKind("media"); const mediaMap=new Map();
+      for(const x of exMedia){ const a=x.appProperties||{}; if(a.jsrc) mediaMap.set(a.jsrc,{jid:a.jid}); }
+      log(`No diário: ${exEntries.length} entradas e ${exMedia.length} ficheiros de media.`);
+
+      log("A ler a conversa…"); z=await loadZip(f);
+      const slug=chatSlug(z.txt.filename);
+      const {msgs}=parseChat(z.text);
+      const {list, stats}=buildGroups(msgs, meName, roleMe, roleOther, z.files, withStickers);
+      log(`Mensagens: ${msgs.length} · entradas a tratar: ${list.length} · fotos/vídeos: ${stats.media}`
+        +(stats.missing?` (${stats.missing} em falta no zip)`:"")
+        +` · voz: ${stats.voice} · documentos: ${stats.docs} · stickers ignorados: ${stats.stickers}.`);
+      if(!list.length){ log("Nada para importar.","warn"); return; }
+
+      if(!dry) await acquireWake();
+      progDone=0; progTotal=list.length;
+
+      await pool(list, dry?8:CONCURRENCY, async g=>{
+        try{
+          const srcKey=`wa:${slug}:${g.day}:${g.who}`;
+          const wh=await shortHash(g.html+"|"+g.media.join(","));
+          const existing=entryMap.get(srcKey);
+          const label=`${g.day} ${g.role}`;
+          if(existing && existing.wh===wh){ st.unchanged++; return; }
+          const nLines=g.lines.length, nMed=g.media.length;
+          log(`${dry?"[simulação] ":""}${existing?"↻ atualizar":"•"} ${label} (${nLines} linhas${nMed?`, ${nMed} media`:""})`);
+          if(dry){ return; }
+
+          const entry={ id: existing?existing.jid:np(), html:g.html, text:htmlToText(g.html), date:g.firstTs.toISOString(), mood:null,
+            tags:["whatsapp"], favorite:false, location:null, weather:null, media:[], prompt:null, program:null,
+            createdAt:g.firstTs.getTime(), updatedAt:Date.now() };
+          let cur=null;
+          if(existing){ try{ cur=await decObj(key, JSON.parse(dec.decode(await readBytes(existing.fileId)))); }catch(e){} }
+          if(cur){ entry.date=cur.date||entry.date; entry.createdAt=cur.createdAt||entry.createdAt; entry.favorite=!!cur.favorite; entry.tags=[...new Set([...(cur.tags||[]),"whatsapp"])]; entry.media=(cur.media||[]).slice(); }
+          const haveIds=new Set(entry.media.map(m=>m.id));
+
+          for(const fn of g.media){
+            const mediaKey=`wa:${slug}/${fn}`;
+            try{
+              const seen=mediaMap.get(mediaKey);
+              if(seen && haveIds.has(seen.jid)) { st.mReuse++; continue; }          // já está nesta entrada
+              const ze=z.files.get(fn); const bytes=await ze.getData(new zip.Uint8ArrayWriter());
+              const mime=mimeFor(fn); const info=VID.test(fn)?await videoMedia(bytes,mime):await imageMedia(bytes,mime);
+              let mid;
+              if(seen){ mid=seen.jid; st.mReuse++; }                                  // já está no Drive: só liga
+              else{ mid=np(); await driveWrite({ name:`${mid}.bin`, parentId:await pathFolder(["media"]), mimeType:"application/octet-stream",
+                  body:await encBytes(key,bytes), appProperties:{kind:"media", jid:mid, eid:entry.id, mime, upd:"1", jsrc:mediaKey} });
+                mediaMap.set(mediaKey,{jid:mid}); st.mUp++; }
+              entry.media.push({id:mid, type:info.type, mime:info.mime, thumb:info.thumb, w:info.w, h:info.h}); haveIds.add(mid);
+            }catch(e){ st.mFail++; log(`   erro no media ${fn}: ${e.message}`,"err"); }
+          }
+
+          const props={kind:"entry", jid:entry.id, upd:String(entry.updatedAt), d:el(entry.date), jsrc:srcKey, wh, fmt:FMT};
+          const fid=await driveWrite({ fileId:existing?existing.fileId:undefined, name:`${el(entry.date)}_${entry.id}.json`,
+            parentId:existing?undefined:await pathFolder(my(entry.date)), mimeType:"application/json",
+            body:JSON.stringify(await encObj(key,entry)), appProperties:props });
+          entryMap.set(srcKey,{fileId:fid, jid:entry.id, wh});
+          existing?st.updated++:st.created++;
+        }catch(e){ log("erro numa entrada: "+e.message,"err"); st.mFail++; }
+        finally{ tick(); }
+      });
+
+      log("");
+      if(dry){ log(`Simulação concluída: ${list.length-st.unchanged} entradas a criar/atualizar, ${st.unchanged} já iguais.`,"ok"); log("Tira o visto da simulação e carrega outra vez para gravar."); }
+      else{ log(`Concluído: ${st.created} novas, ${st.updated} atualizadas, ${st.unchanged} já iguais. Media: ${st.mUp} enviadas, ${st.mReuse} reaproveitadas${st.mFail?`, ${st.mFail} com erro`:""}.`,"ok");
+        log("Abre a app Diário e toca na nuvem (sincronizar) — as entradas aparecem lá."); }
+    }catch(e){ log("ERRO: "+e.message,"err"); }
+    finally{ try{ z&&await z.reader.close(); }catch(e){} releaseWake(); $("btnAuth").disabled=false; updateRunState(); }
+  }
+
+  function unlock(){ for(const id of ["card2","card3"]){ $(id).style.opacity=1; $(id).style.pointerEvents="auto"; } }
+  let tokenClient=null;
+  function initAuth(){
+    if(!(window.google&&google.accounts&&google.accounts.oauth2)){
+      $("authState").textContent="Não foi possível carregar os serviços Google. Verifica a ligação e recarrega."; $("authState").className="err"; return; }
+    tokenClient=google.accounts.oauth2.initTokenClient({ client_id:CLIENT_ID, scope:SCOPE,
+      callback:resp=>{ if(resp.error){ $("authState").textContent="Falha no login: "+(resp.error_description||resp.error); $("authState").className="err"; return; }
+        token=resp.access_token; $("authState").textContent="Ligado ao Google Drive ✓"; $("authState").className="ok";
+        $("btnAuth").textContent="Mudar de conta"; unlock(); },
+      error_callback:()=>{ $("authState").textContent="Login cancelado ou bloqueado."; $("authState").className="warn"; } }); }
+  $("btnAuth").addEventListener("click",()=>{ if(!tokenClient) initAuth(); if(tokenClient) tokenClient.requestAccessToken({prompt:""}); });
+  $("file").addEventListener("change", onFile);
+  $("me").addEventListener("change", updateRunState);
+  $("btnRun").addEventListener("click", run);
+  window.addEventListener("load",()=>setTimeout(initAuth,400));
+})();
+</script>
+</body>
+</html>
