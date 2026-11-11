@@ -85,6 +85,7 @@
     <div class="step">Passo 3 — Importar</div>
     <button id="btnRun" class="big" disabled>Importar conversa</button>
     <div class="bar hide" id="barWrap"><i id="bar"></i></div>
+    <div class="muted hide" id="eta" style="margin-top:6px;font-size:.9rem"></div>
     <div class="log hide" id="log"></div>
   </div>
 
@@ -115,8 +116,16 @@
 
   function log(msg, cls){ logEl.classList.remove("hide"); const d=document.createElement("div");
     if(cls) d.className=cls; d.textContent=msg; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
-  let progDone=0, progTotal=0;
-  const tick = () => { progDone++; if(progTotal){ barWrap.classList.remove("hide"); bar.style.width=Math.round(progDone/progTotal*100)+"%"; } };
+  // progresso ponderado por megabytes (mais fiável do que contar entradas) e tempo restante
+  const etaEl=$("eta"); let pT0=0, pTotal=1, pDone=0, pBT=0, pBD=0, pN=0, pItems=0;
+  const FIXED=262144;   // custo fixo por entrada e por ficheiro (pedidos ao Drive), em "bytes equivalentes"
+  const fmtMB = b => b>=1073741824 ? (b/1073741824).toFixed(1).replace(".",",")+" GB" : b<1048576 ? (b/1048576).toFixed(1).replace(/\.0$/,"").replace(".",",")+" MB" : Math.round(b/1048576)+" MB";
+  const fmtEta = ms => { const s=Math.round(ms/1e3); if(s<45) return "menos de 1 min"; const m=Math.round(s/60); if(m<90) return "~"+m+" min"; return "~"+Math.floor(m/60)+" h "+(m%60)+" min"; };
+  function showProg(){ barWrap.classList.remove("hide"); bar.style.width=Math.round(Math.min(1,pDone/pTotal)*100)+"%";
+    const el=Date.now()-pT0; let eta=""; if(pDone>0 && pDone<pTotal && pDone/pTotal>=0.05 && el>3000) eta=" · faltam "+fmtEta((pTotal-pDone)/(pDone/el));
+    etaEl.classList.remove("hide"); etaEl.textContent=`${pN}/${pItems} entradas · ${fmtMB(pBD)} / ${fmtMB(pBT)}${eta}`; }
+  function progStart(totalW, totalB, items){ pT0=Date.now(); pTotal=Math.max(1,totalW); pBT=totalB; pDone=0; pBD=0; pN=0; pItems=items; showProg(); }
+  function progTick(w, b){ pDone+=w; pBD+=b; pN++; showProg(); }
 
   // ---- base64 / cripto (igual à app Diário) ----
   const enc = new TextEncoder(), dec = new TextDecoder();
@@ -370,12 +379,19 @@
       if(!list.length){ log("Nada para importar.","warn"); return; }
 
       if(!dry) await acquireWake();
-      progDone=0; progTotal=list.length;
+      for(const g of list){
+        g.wh=await shortHash(g.html+"|"+g.media.join(","));
+        const ex=entryMap.get(`wa:${slug}:${g.day}`);
+        const skip=(ex && (ex.fmt!==FMT || ex.wh===g.wh));
+        g.b=(skip||ex) ? 0 : g.media.reduce((a,fn)=>a+((z.files.get(fn)&&z.files.get(fn).uncompressedSize)||0),0);
+        g.w=skip ? 0 : FIXED+g.b+(ex ? 0 : FIXED*g.media.length);
+      }
+      progStart(list.reduce((a,g)=>a+g.w,0), list.reduce((a,g)=>a+g.b,0), list.length);
 
       await pool(list, dry?8:CONCURRENCY, async g=>{
         try{
           const srcKey=`wa:${slug}:${g.day}`;
-          const wh=await shortHash(g.html+"|"+g.media.join(","));
+          const wh=g.wh;
           const existing=entryMap.get(srcKey);
           const label=`${g.day} (${g.title})`;
           if(existing && existing.fmt!==FMT){ st.legacy++; log(`↷ ${label}: importada com a versão anterior — mantida`); return; }
@@ -415,7 +431,7 @@
           entryMap.set(srcKey,{fileId:fid, jid:entry.id, wh, fmt:FMT});
           existing?st.updated++:st.created++;
         }catch(e){ log("erro numa entrada: "+e.message,"err"); st.mFail++; }
-        finally{ tick(); }
+        finally{ progTick(g.w, g.b); }
       });
 
       log("");
