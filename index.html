@@ -28,6 +28,17 @@
       .z7-src,.z7-sync{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;font:700 11px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
       .z7-J{background:#6a5acd}.z7-W{background:#1f9d4d}
       .z7-sync.ok{background:#2e8b57}.z7-sync.pend{background:#d98e04}
+      .entry-card{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+      .entry-card-img{pointer-events:none}
+      .entry-card.z7-selmode{padding-left:46px}
+      .entry-card.z7-sel{outline:3px solid #3d5a80;outline-offset:-3px;background-color:rgba(61,90,128,.12)}
+      .z7-pick{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;border:2px solid #3d5a80;background:rgba(255,255,255,.9);color:#fff;font:700 14px/20px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center}
+      .z7-pick.on{background:#3d5a80}
+      .z7-bar{position:fixed;top:0;left:0;right:0;z-index:2147483001;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;background:#3d5a80;color:#fff;font:600 15px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+      .z7-bar button{border:0;border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer;color:#fff;background:rgba(255,255,255,.18)}
+      .z7-bar .z7-bx{padding:8px 11px;font-size:16px}
+      .z7-bar .z7-del{background:#c0392b}
+      .z7-bar button:disabled{opacity:.5;cursor:not-allowed}
     </style>
     <div id="jimport">
       <a href="./import.html">↧&nbsp;Importar do Journey</a>
