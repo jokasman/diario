@@ -76,8 +76,8 @@
     <input type="password" id="pass" placeholder="a mesma que usas na app" autocomplete="off" />
     <label class="check"><input type="checkbox" id="dry" checked />
       <span>Simular primeiro (mostra o que seria importado, <b>sem gravar</b> nada)</span></label>
-    <div class="note">Cada <b>dia</b> e cada <b>pessoa</b> dá uma entrada: as mensagens do mesmo dia ficam juntas e a
-    primeira linha é o nome escolhido acima. Mensagens de voz e documentos <b>não são importados</b> (a Diário só aceita fotos e vídeos).
+    <div class="note">Cada <b>dia</b> dá uma entrada com todas as mensagens desse dia, por ordem. Cada mensagem leva a <b>hora e o nome</b>
+    de quem a escreveu (os nomes escolhidos acima) e a primeira linha diz quem escreveu nesse dia. Mensagens de voz e documentos <b>não são importados</b> (a Diário só aceita fotos e vídeos).
     <b>Mantém esta página aberta</b> até ao fim; se parar, corre outra vez e ela continua.</div>
   </div>
 
@@ -105,7 +105,7 @@
   const ROOTNAME = "Journey";
   const ITER = 310000;
   const CHECK = "diario-vault-check-v1";
-  const FMT = "wa1";
+  const FMT = "wa2";
   const CONCURRENCY = 3;
 
   const $ = id => document.getElementById(id);
@@ -137,7 +137,7 @@
   const el = d => { const e=new Date(d); return `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`; };
   const my = d => { const e=new Date(d); return ["entries", String(e.getFullYear()), pad(e.getMonth()+1)]; };
   const np = () => Date.now().toString(36)+"-"+[...crypto.getRandomValues(new Uint8Array(6))].map(x=>x.toString(16).padStart(2,"0")).join("");
-  const htmlToText = t => ((new DOMParser().parseFromString((t||"").replace(/<\/(p|h\d|li|blockquote)>/g,"$&\n"),"text/html").body.textContent)||"").replace(/\n{3,}/g,"\n\n").trim();
+  const htmlToText = t => ((new DOMParser().parseFromString((t||"").replace(/<br\s*\/?>/gi,"\n").replace(/<\/(p|h\d|li|blockquote)>/g,"$&\n"),"text/html").body.textContent)||"").replace(/\n{3,}/g,"\n\n").trim();
   const escHtml = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   async function shortHash(s){ const h=new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s))); return [...h.slice(0,8)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 
@@ -252,28 +252,36 @@
     return {msgs, mdy};
   }
 
-  // agrupa por dia + pessoa (eu / outros). `files` = Map(nome -> entrada do zip)
+  // agrupa por dia (uma entrada por dia); cada mensagem leva a hora e o nome da pessoa.
+  // `files` = Map(nome -> entrada do zip)
   function buildGroups(msgs, meName, roleMe, roleOther, files, withStickers){
     const groups=new Map(); const stats={media:0, missing:0, voice:0, docs:0, stickers:0};
     for(const m of msgs){
       const who = m.author===meName ? "me" : "other";
-      const day=el(m.ts), k=day+"|"+who;
-      let g=groups.get(k);
-      if(!g){ g={day, who, role: who==="me"?roleMe:roleOther, firstTs:m.ts, lines:[], media:[]}; groups.set(k,g); }
+      const name = who==="me" ? roleMe : roleOther;
+      const day=el(m.ts);
+      let g=groups.get(day);
+      if(!g){ g={day, firstTs:m.ts, has:false, who:new Set(), lines:[], media:[]}; groups.set(day,g); }
       const hhmm=pad(m.ts.getHours())+":"+pad(m.ts.getMinutes());
+      const touch=()=>{ if(!g.has){ g.has=true; g.firstTs=m.ts; } g.who.add(who); };
+      const put=t=>{ touch(); g.lines.push(`${hhmm} · ${name}: ${t}`); };
       if(m.file){
         const f=m.file, isSticker=/^STK-/i.test(f);
         if(isSticker && !withStickers){ stats.stickers++; continue; }
+        const cap=m.caption?" "+m.caption:"";
         if(IMG.test(f)||VID.test(f)){
-          if(files.has(f)){ g.media.push(f); stats.media++; } else { stats.missing++; g.lines.push(`${hhmm} — [ficheiro em falta: ${f}]`); }
-          if(m.caption) g.lines.push(`${hhmm} — ${m.caption}`);
-        } else if(AUD.test(f)){ stats.voice++; g.lines.push(`${hhmm} — [mensagem de voz — não importada]`); if(m.caption) g.lines.push(`${hhmm} — ${m.caption}`); }
-        else { stats.docs++; g.lines.push(`${hhmm} — [documento: ${f} — não importado]`); if(m.caption) g.lines.push(`${hhmm} — ${m.caption}`); }
-      } else g.lines.push(`${hhmm} — ${m.text}`);
+          const tag=isSticker?"sticker":(VID.test(f)?"vídeo":"foto");
+          if(files.has(f)){ touch(); g.media.push(f); stats.media++; put(`[${tag}]${cap}`); }
+          else { stats.missing++; put(`[ficheiro em falta: ${f}]${cap}`); }
+        } else if(AUD.test(f)){ stats.voice++; put(`[mensagem de voz — não importada]${cap}`); }
+        else { stats.docs++; put(`[documento: ${f} — não importado]${cap}`); }
+      } else put(m.text);
     }
-    const list=[...groups.values()].filter(g=>g.lines.length||g.media.length).sort((a,b)=>a.firstTs-b.firstTs||(a.who==="me"?-1:1));
+    const list=[...groups.values()].filter(g=>g.lines.length||g.media.length).sort((a,b)=>a.firstTs-b.firstTs);
     for(const g of list){
-      g.html=`<h3>${escHtml(g.role)}</h3>`+g.lines.map(t=>`<p>${escHtml(t).replace(/\n/g,"<br>")}</p>`).join("");
+      const names=[]; if(g.who.has("me")) names.push(roleMe); if(g.who.has("other")) names.push(roleOther);
+      g.title=names.join(" e ");
+      g.html=`<h3>${escHtml(g.title)}</h3>`+g.lines.map(t=>`<p>${escHtml(t).replace(/\n/g,"<br>")}</p>`).join("");
     }
     return {list, stats};
   }
@@ -366,10 +374,10 @@
 
       await pool(list, dry?8:CONCURRENCY, async g=>{
         try{
-          const srcKey=`wa:${slug}:${g.day}:${g.who}`;
+          const srcKey=`wa:${slug}:${g.day}`;
           const wh=await shortHash(g.html+"|"+g.media.join(","));
           const existing=entryMap.get(srcKey);
-          const label=`${g.day} ${g.role}`;
+          const label=`${g.day} (${g.title})`;
           if(existing && existing.wh===wh){ st.unchanged++; return; }
           const nLines=g.lines.length, nMed=g.media.length;
           log(`${dry?"[simulação] ":""}${existing?"↻ atualizar":"•"} ${label} (${nLines} linhas${nMed?`, ${nMed} media`:""})`);
