@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#3d5a80" />
+<title>Mudar palavra-passe · Diário</title>
+<style>
+  :root{
+    --bg:#0f1720; --panel:#16202b; --panel2:#1d2a38; --line:#2a3a4c;
+    --text:#e8edf2; --muted:#9fb0c0; --accent:#3d5a80; --accent2:#5b7fb0;
+    --ok:#3fb27f; --warn:#d8a24a; --err:#e06a6a;
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --bg:#f6f3ee; --panel:#ffffff; --panel2:#f0ece4; --line:#e2dbcf;
+      --text:#23303c; --muted:#5d6b78; --accent:#3d5a80; --accent2:#2f4a73;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+  .wrap{max-width:680px;margin:0 auto;padding:24px 16px 64px}
+  h1{font-size:1.5rem;margin:.2em 0 .1em;display:flex;align-items:center;gap:10px}
+  h1 img{width:34px;height:34px;border-radius:8px}
+  .sub{color:var(--muted);margin:.2em 0 1.4em}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:14px 0}
+  .step{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent2);font-weight:700;margin-bottom:6px}
+  label{display:block;font-weight:600;margin:10px 0 6px}
+  input[type=password],input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:1rem}
+  button{appearance:none;border:0;border-radius:10px;padding:13px 18px;font-size:1rem;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+  button.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .big{width:100%;padding:15px;font-size:1.05rem}
+  .muted{color:var(--muted)}
+  .check{display:flex;gap:8px;align-items:flex-start;margin:12px 0;font-weight:400}
+  .check input{margin-top:4px;width:auto}
+  .note{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.88rem;color:var(--muted);margin-top:10px}
+  .log{background:#0a1118;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.84rem;white-space:pre-wrap;max-height:320px;overflow:auto;margin-top:12px;color:#cfe}
+  @media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .log{background:#1a2430;color:#cfe}}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .err{color:var(--err)}
+  .hide{display:none}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .foot{color:var(--muted);font-size:.82rem;margin-top:22px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><img src="./icon.svg" alt=""/> Mudar palavra-passe</h1>
+  <p class="sub">Muda a palavra-passe do teu diário <b>sem mexer nas entradas, fotos e vídeos</b>.
+  Só é reescrito o ficheiro pequeno do cofre (<code>vault.json</code>); tudo é feito no teu dispositivo.</p>
+
+  <div class="card">
+    <div class="step">Antes de começar</div>
+    <p class="muted" style="margin:.2em 0">Abre a app Diário <b>em cada dispositivo, com ligação à internet</b>, e deixa-a
+    atualizar. Os dispositivos com a app desatualizada não reconhecem a palavra-passe nova.</p>
+  </div>
+
+  <div class="card">
+    <div class="step">Passo 1 — Entrar com Google</div>
+    <p class="muted" id="authState">É a mesma conta que usas no diário.</p>
+    <button id="btnAuth" class="big">Entrar com Google</button>
+  </div>
+
+  <div class="card" id="card2" style="opacity:.5;pointer-events:none">
+    <div class="step">Passo 2 — Palavras-passe</div>
+    <label for="old">Palavra-passe atual</label>
+    <input type="password" id="old" autocomplete="off" />
+    <label for="n1">Palavra-passe nova</label>
+    <input type="password" id="n1" autocomplete="off" placeholder="mínimo 10 caracteres" />
+    <label for="n2">Repete a palavra-passe nova</label>
+    <input type="password" id="n2" autocomplete="off" />
+    <label class="check"><input type="checkbox" id="show" /><span>Mostrar palavras-passe</span></label>
+    <div class="note"><b>Dica:</b> uma frase de 4 ou 5 palavras (ex.: “cavalo lua mesa verde”) é longa, segura e fácil de lembrar.
+    Guarda-a num gestor de palavras-passe e em papel <b>antes</b> de continuar.</div>
+    <label class="check"><input type="checkbox" id="ack" /><span>Percebo que, se esquecer a palavra-passe nova,
+    <b>não há forma de recuperar</b> as entradas.</span></label>
+  </div>
+
+  <div class="card" id="card3" style="opacity:.5;pointer-events:none">
+    <div class="step">Passo 3 — Mudar</div>
+    <button id="btnRun" class="big">Mudar palavra-passe</button>
+    <div class="log hide" id="log"></div>
+    <div class="row">
+      <button id="btnUndo" class="ghost">Desfazer (repor o cofre antigo)</button>
+    </div>
+  </div>
+
+  <p class="foot">É guardada uma cópia do cofre antigo no Drive (e descarregada para o teu dispositivo).
+  O cofre antigo só abre com a palavra-passe antiga.</p>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+(() => {
+  "use strict";
+  const CLIENT_ID = "245600677941-jd73oubjd43rjngqln2nuvu8g3n5e3f9.apps.googleusercontent.com";
+  const SCOPE = "https://www.googleapis.com/auth/drive.file openid email";
+  const API = "https://www.googleapis.com/drive/v3";
+  const UP  = "https://www.googleapis.com/upload/drive/v3";
+  const FOLDER = "application/vnd.google-apps.folder";
+  const ROOTNAME = "Journey";
+  const CHECK = "diario-vault-check-v1";
+  const NEW_ITER = 600000;
+  const MIN_LEN = 10;
+
+  const $ = id => document.getElementById(id);
+  const logEl = $("log");
+  let token = null;
+  function log(msg, cls){ logEl.classList.remove("hide"); const d=document.createElement("div");
+    if(cls) d.className=cls; d.textContent=msg; logEl.appendChild(d); logEl.scrollTop=logEl.scrollHeight; }
+
+  // ---- base64 / cripto (igual à app Diário) ----
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  const b64e = b => { const u=b instanceof Uint8Array?b:new Uint8Array(b); let s="";
+    for(let i=0;i<u.length;i+=32768) s+=String.fromCharCode.apply(null,u.subarray(i,i+32768)); return btoa(s); };
+  const b64d = s => { const bin=atob(s); const u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; };
+  const pbkdf2Base = pass => crypto.subtle.importKey("raw", enc.encode(pass.normalize("NFC")), "PBKDF2", false, ["deriveKey","deriveBits"]);
+  async function deriveKek(pass, saltB64, iter){
+    return crypto.subtle.deriveKey({name:"PBKDF2", salt:b64d(saltB64), iterations:iter, hash:"SHA-256"},
+      await pbkdf2Base(pass), {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]); }
+  async function deriveRaw(pass, saltB64, iter){
+    return new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2", salt:b64d(saltB64), iterations:iter, hash:"SHA-256"},
+      await pbkdf2Base(pass), 256)); }
+  async function encBytes(k, bytes){ const iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv}, k, bytes);
+    const o=new Uint8Array(12+ct.byteLength); o.set(iv); o.set(new Uint8Array(ct),12); return o; }
+  async function decBytes(k, data){ const u=data instanceof Uint8Array?data:new Uint8Array(data);
+    return new Uint8Array(await crypto.subtle.decrypt({name:"AES-GCM", iv:u.slice(0,12)}, k, u.slice(12))); }
+  const importData = raw => crypto.subtle.importKey("raw", raw, {name:"AES-GCM"}, false, ["encrypt","decrypt"]);
+  async function decObj(k, c){ return JSON.parse(dec.decode(await decBytes(k, b64d(c.data)))); }
+
+  // Devolve os 32 bytes da chave de dados, verificando a palavra-passe. Aceita cofre v1 e v2.
+  async function unlockRaw(vault, pass){
+    const iter = vault.iterations || 310000;
+    let raw;
+    try{
+      if(vault.wrapped){ const kek = await deriveKek(pass, vault.salt, iter); raw = await decBytes(kek, b64d(vault.wrapped.data)); }
+      else raw = await deriveRaw(pass, vault.salt, iter);
+      const r = await decObj(await importData(raw), vault.verifier);
+      if(r.check !== CHECK) throw 0;
+    }catch(e){ throw new Error("Palavra-passe incorreta."); }
+    return raw;
+  }
+  const sameBytes = (a,b) => a.length===b.length && a.every((x,i)=>x===b[i]);
+
+  // ---- Google Drive ----
+  async function gfetch(url, opts){ const o=opts||{};
+    const r=await fetch(url, {...o, headers:{...(o.headers||{}), Authorization:"Bearer "+token}});
+    if(r.status===401) throw new Error("Sessão Google expirada. Volta a entrar.");
+    if(!r.ok){ let m="Erro Google Drive ("+r.status+")"; try{const j=await r.json(); if(j.error&&j.error.message) m+=": "+j.error.message;}catch(e){} throw new Error(m); }
+    return r; }
+  async function listByKind(kind){ const out=[]; let tok="";
+    const q=`appProperties has { key='kind' and value='${kind}' } and trashed=false`;
+    do{ const url=`${API}/files?q=${encodeURIComponent(q)}&pageSize=1000&spaces=drive&fields=${encodeURIComponent("nextPageToken,files(id,name,appProperties)")}`+(tok?`&pageToken=${tok}`:"");
+      const j=await (await gfetch(url)).json(); out.push(...(j.files||[])); tok=j.nextPageToken||""; } while(tok);
+    return out; }
+  async function readText(id){ const r=await gfetch(`${API}/files/${id}?alt=media`); return await r.text(); }
+  async function journeyFolder(){
+    const q=`name='${ROOTNAME}' and mimeType='${FOLDER}' and trashed=false and 'root' in parents`;
+    const j=await (await gfetch(`${API}/files?q=${encodeURIComponent(q)}&fields=files(id)&spaces=drive`)).json();
+    if(j.files&&j.files[0]) return j.files[0].id;
+    const c=await (await gfetch(`${API}/files?fields=id`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name:ROOTNAME,mimeType:FOLDER,parents:["root"]})})).json(); return c.id; }
+  async function driveWrite({fileId, name, parentId, mimeType, body, appProperties}){
+    const meta={name, mimeType, appProperties}; if(!fileId) meta.parents=[parentId];
+    const b="diario"+Math.random().toString(36).slice(2);
+    const blob=new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n`,
+      `--${b}\r\nContent-Type: ${mimeType}\r\n\r\n`, body, `\r\n--${b}--`]);
+    const url=fileId?`${UP}/files/${fileId}?uploadType=multipart&fields=id`:`${UP}/files?uploadType=multipart&fields=id`;
+    const r=await gfetch(url,{method:fileId?"PATCH":"POST", headers:{"Content-Type":`multipart/related; boundary=${b}`}, body:blob});
+    return (await r.json()).id; }
+
+  async function getSingleVault(){
+    const files=await listByKind("vault");
+    if(!files.length) throw new Error("Não encontrei o teu diário no Drive. Abre primeiro a app e entra com esta conta Google.");
+    if(files.length>1) throw new Error("Há mais do que um cofre no Drive. Por segurança, não faço nada. Fala comigo antes de continuar.");
+    return files[0]; }
+
+  function download(name, text){
+    try{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:"application/json"}));
+      a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},1500); }catch(e){} }
+
+  async function run(){
+    $("btnRun").disabled=true; $("btnUndo").disabled=true; $("btnAuth").disabled=true;
+    try{
+      const oldP=$("old").value, n1=$("n1").value, n2=$("n2").value;
+      if(!oldP){ alert("Escreve a palavra-passe atual."); return; }
+      if(n1.length<MIN_LEN){ alert(`A palavra-passe nova tem de ter pelo menos ${MIN_LEN} caracteres.`); return; }
+      if(n1!==n2){ alert("As duas palavras-passe novas não coincidem."); return; }
+      if(n1===oldP){ alert("A palavra-passe nova é igual à atual."); return; }
+      if(!$("ack").checked){ alert("Confirma que percebes que não há recuperação da palavra-passe."); return; }
+
+      log("A ler o cofre…");
+      const vf=await getSingleVault();
+      const vText=await readText(vf.id);
+      const vault=JSON.parse(vText);
+      log("A verificar a palavra-passe atual…");
+      const raw=await unlockRaw(vault, oldP);
+      log("Palavra-passe atual correta.","ok");
+
+      log("A guardar uma cópia do cofre antigo…");
+      const stamp=new Date().toISOString();
+      download(`vault-antigo-${stamp.slice(0,10)}.json`, vText);
+      await driveWrite({ name:`vault-antigo-${stamp.replace(/[:.]/g,"-")}.json`, parentId:await journeyFolder(),
+        mimeType:"application/json", body:vText, appProperties:{kind:"vaultbak", ts:stamp} });
+      log("Cópia guardada no Drive e descarregada para este dispositivo.","ok");
+
+      log("A proteger a chave com a palavra-passe nova…");
+      const salt=b64e(crypto.getRandomValues(new Uint8Array(16)));
+      const kekNew=await deriveKek(n1, salt, NEW_ITER);
+      const wrapped={v:1, alg:"AES-256-GCM", data:b64e(await encBytes(kekNew, raw))};
+      const nv={ v:2, kdf:"PBKDF2-SHA256", iterations:NEW_ITER, salt, wrapped, verifier:vault.verifier,
+        createdAt:vault.createdAt||stamp, rekeyedAt:stamp };
+
+      // verificação antes de gravar
+      const chk=await unlockRaw(nv, n1);
+      if(!sameBytes(chk, raw)) throw new Error("Falhou a verificação interna. Nada foi alterado.");
+      log("Verificação interna feita.","ok");
+
+      log("A gravar o cofre novo…");
+      await driveWrite({ fileId:vf.id, name:"vault.json", mimeType:"application/json", body:JSON.stringify(nv,null,2), appProperties:{kind:"vault"} });
+
+      // verificação depois de gravar (leitura a partir do Drive)
+      log("A confirmar no Drive…");
+      const after=JSON.parse(await readText(vf.id));
+      let okAfter=false;
+      try{ okAfter=sameBytes(await unlockRaw(after, n1), raw); }catch(e){}
+      if(!okAfter){
+        log("A confirmação falhou. A repor o cofre antigo…","err");
+        await driveWrite({ fileId:vf.id, name:"vault.json", mimeType:"application/json", body:vText, appProperties:{kind:"vault"} });
+        throw new Error("Não foi possível confirmar o cofre novo. O cofre antigo foi reposto; nada mudou.");
+      }
+      log("","");
+      log("Concluído: a palavra-passe nova já está ativa.","ok");
+      log("As entradas, fotos e vídeos não foram tocados.");
+      log("Abre a app Diário em cada dispositivo (com internet) para atualizar. Quem já está ligado continua ligado.");
+    }catch(e){ log("ERRO: "+e.message,"err"); }
+    finally{ $("btnRun").disabled=false; $("btnUndo").disabled=false; $("btnAuth").disabled=false; }
+  }
+
+  async function undo(){
+    if(!confirm("Repor o cofre antigo? A palavra-passe volta a ser a antiga.")) return;
+    $("btnRun").disabled=true; $("btnUndo").disabled=true; $("btnAuth").disabled=true;
+    try{
+      const vf=await getSingleVault();
+      const baks=(await listByKind("vaultbak")).sort((a,b)=>String((b.appProperties||{}).ts).localeCompare(String((a.appProperties||{}).ts)));
+      if(!baks.length) throw new Error("Não encontrei nenhuma cópia do cofre antigo.");
+      const text=await readText(baks[0].id);
+      JSON.parse(text);
+      await driveWrite({ fileId:vf.id, name:"vault.json", mimeType:"application/json", body:text, appProperties:{kind:"vault"} });
+      log("Cofre antigo reposto. A palavra-passe é outra vez a antiga.","ok");
+    }catch(e){ log("ERRO: "+e.message,"err"); }
+    finally{ $("btnRun").disabled=false; $("btnUndo").disabled=false; $("btnAuth").disabled=false; }
+  }
+
+  function unlock(){ for(const id of ["card2","card3"]){ $(id).style.opacity=1; $(id).style.pointerEvents="auto"; } }
+  let tokenClient=null;
+  function initAuth(){
+    if(!(window.google&&google.accounts&&google.accounts.oauth2)){
+      $("authState").textContent="Não foi possível carregar os serviços Google. Verifica a ligação e recarrega.";
+      $("authState").className="err"; return; }
+    tokenClient=google.accounts.oauth2.initTokenClient({ client_id:CLIENT_ID, scope:SCOPE,
+      callback:resp=>{ if(resp.error){ $("authState").textContent="Falha no login: "+(resp.error_description||resp.error); $("authState").className="err"; return; }
+        token=resp.access_token; $("authState").textContent="Ligado ao Google Drive ✓"; $("authState").className="ok";
+        $("btnAuth").textContent="Mudar de conta"; unlock(); },
+      error_callback:()=>{ $("authState").textContent="Login cancelado ou bloqueado."; $("authState").className="warn"; } }); }
+  $("btnAuth").addEventListener("click",()=>{ if(!tokenClient) initAuth(); if(tokenClient) tokenClient.requestAccessToken({prompt:""}); });
+  $("show").addEventListener("change",e=>{ for(const id of ["old","n1","n2"]) $(id).type=e.target.checked?"text":"password"; });
+  $("btnRun").addEventListener("click", run);
+  $("btnUndo").addEventListener("click", undo);
+  window.addEventListener("load",()=>setTimeout(initAuth,400));
+})();
+</script>
+</body>
+</html>

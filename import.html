@@ -171,9 +171,14 @@
     const files=await listByKind("vault");
     if(!files.length) throw new Error("Não encontrei o teu diário no Drive. Abre primeiro a app, entra e cria a palavra-passe.");
     const vault=JSON.parse(dec.decode(await readBytes(files[0].id)));
-    const k=await deriveKey(pass, vault.salt, vault.iterations||ITER);
-    try{ const r=await decObj(k, vault.verifier); if(r.check!==CHECK) throw 0; }
-    catch(e){ throw new Error("Palavra-passe incorreta."); }
+    let k=await deriveKey(pass, vault.salt, vault.iterations||ITER);
+    try{
+      if(vault.wrapped){            // cofre v2: a chave de dados vem protegida pela palavra-passe
+        const raw=await decBytes(k, b64d(vault.wrapped.data));
+        k=await crypto.subtle.importKey("raw", raw, {name:"AES-GCM"}, false, ["encrypt","decrypt"]);
+      }
+      const r=await decObj(k, vault.verifier); if(r.check!==CHECK) throw 0;
+    }catch(e){ throw new Error("Palavra-passe incorreta."); }
     return k; }
 
   // ---- thumbnails ----
